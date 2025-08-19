@@ -13,6 +13,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"sort"
 	"strconv"
 
 	"github.com/alixaxel/pagerank"
@@ -27,6 +28,7 @@ type Fisher struct {
 	Label    string
 	Cluster  int
 	Index    int
+	Rank     float64
 }
 
 // Labels maps iris labels to ints
@@ -148,7 +150,13 @@ func main() {
 	for i, value := range stddev {
 		stddev[i] = math.Sqrt(value / 128.0)
 	}
+	for i := range iris {
+		iris[i].Rank = stddev[i]
+	}
+	sort.Slice(iris, func(i, j int) bool {
+		return iris[i].Rank < iris[j].Rank
+	})
 	for i := range stddev {
-		fmt.Println(stddev[i], iris[i].Label)
+		fmt.Println(iris[i].Label)
 	}
 }
