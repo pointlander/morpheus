@@ -99,15 +99,15 @@ func Load() []Fisher {
 func main() {
 	iris := Load()
 	rng := rand.New(rand.NewSource(1))
-	const iterations = 256
+	const iterations = 512
 	results := make([][]float64, iterations)
 	for iteration := range iterations {
 		a, b := NewMatrix(4, 4, make([]float64, 4*4)...), NewMatrix(4, 4, make([]float64, 4*4)...)
 		index := 0
 		for range a.Rows {
 			for range a.Cols {
-				a.Data[index] = rng.Float64()
-				b.Data[index] = rng.Float64()
+				a.Data[index] = rng.NormFloat64()
+				b.Data[index] = rng.NormFloat64()
 				index++
 			}
 		}
@@ -196,7 +196,26 @@ func main() {
 		return iris[i].Index < iris[j].Index
 	})
 
-	clusters, _, err := kmeans.Kmeans(1, cov, 3, kmeans.SquaredEuclideanDistance, -1)
+	meta := make([][]float64, len(iris))
+	for i := range meta {
+		meta[i] = make([]float64, len(iris))
+	}
+	const k = 3
+	for i := 0; i < 33; i++ {
+		clusters, _, err := kmeans.Kmeans(int64(i+1), cov, k, kmeans.SquaredEuclideanDistance, -1)
+		if err != nil {
+			panic(err)
+		}
+		for i := 0; i < len(meta); i++ {
+			target := clusters[i]
+			for j, v := range clusters {
+				if v == target {
+					meta[i][j]++
+				}
+			}
+		}
+	}
+	clusters, _, err := kmeans.Kmeans(1, meta, 3, kmeans.SquaredEuclideanDistance, -1)
 	if err != nil {
 		panic(err)
 	}
