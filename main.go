@@ -17,6 +17,7 @@ import (
 	"strconv"
 
 	"github.com/alixaxel/pagerank"
+	"github.com/pointlander/morpheus/kmeans"
 )
 
 //go:embed iris.zip
@@ -98,7 +99,7 @@ func Load() []Fisher {
 func main() {
 	iris := Load()
 	rng := rand.New(rand.NewSource(1))
-	const iterations = 128
+	const iterations = 256
 	results := make([][]float64, iterations)
 	for iteration := range iterations {
 		a, b := NewMatrix(4, 4, make([]float64, 4*4)...), NewMatrix(4, 4, make([]float64, 4*4)...)
@@ -190,4 +191,22 @@ func main() {
 	fmt.Println("u=")
 	fmt.Println(avg)
 	fmt.Println()
+
+	sort.Slice(iris, func(i, j int) bool {
+		return iris[i].Index < iris[j].Index
+	})
+
+	clusters, _, err := kmeans.Kmeans(1, cov, 3, kmeans.SquaredEuclideanDistance, -1)
+	if err != nil {
+		panic(err)
+	}
+	for i, value := range clusters {
+		iris[i].Cluster = value
+	}
+	sort.Slice(iris, func(i, j int) bool {
+		return iris[i].Cluster < iris[j].Cluster
+	})
+	for i := range stddev {
+		fmt.Println(iris[i].Cluster, iris[i].Label)
+	}
 }
