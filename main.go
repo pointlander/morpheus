@@ -98,13 +98,16 @@ func Load() []Fisher {
 func main() {
 	iris := Load()
 	rng := rand.New(rand.NewSource(1))
-	results := make([][]float64, 0, 128)
-	for range 128 {
-		a, b := NewMatrix[float64](4, 4), NewMatrix[float64](4, 4)
+	const iterations = 128
+	results := make([][]float64, iterations)
+	for iteration := range iterations {
+		a, b := NewMatrix(4, 4, make([]float64, 4*4)...), NewMatrix(4, 4, make([]float64, 4*4)...)
+		index := 0
 		for range a.Rows {
 			for range a.Cols {
-				a.Data = append(a.Data, rng.Float64())
-				b.Data = append(b.Data, rng.Float64())
+				a.Data[index] = rng.Float64()
+				b.Data[index] = rng.Float64()
+				index++
 			}
 		}
 		a = a.Softmax(1)
@@ -112,12 +115,12 @@ func main() {
 		graph := pagerank.NewGraph()
 		for i := range iris {
 			for ii := range iris {
-				x, y := NewMatrix[float64](4, 1), NewMatrix[float64](4, 1)
-				for _, value := range iris[i].Measures {
-					x.Data = append(x.Data, value)
+				x, y := NewMatrix(4, 1, make([]float64, 4)...), NewMatrix(4, 1, make([]float64, 4)...)
+				for i, value := range iris[i].Measures {
+					x.Data[i] = value
 				}
-				for _, value := range iris[ii].Measures {
-					y.Data = append(y.Data, value)
+				for i, value := range iris[ii].Measures {
+					y.Data[i] = value
 				}
 				x = a.MulT(x)
 				y = b.MulT(y)
@@ -129,7 +132,7 @@ func main() {
 		graph.Rank(1.0, 1e-6, func(node uint32, rank float64) {
 			result[node] = rank
 		})
-		results = append(results, result)
+		results[iteration] = result
 	}
 	avg := make([]float64, len(iris))
 	for _, result := range results {
@@ -138,7 +141,7 @@ func main() {
 		}
 	}
 	for i, value := range avg {
-		avg[i] = value / 128.0
+		avg[i] = value / float64(iterations)
 	}
 	stddev := make([]float64, len(iris))
 	for _, result := range results {
@@ -148,7 +151,7 @@ func main() {
 		}
 	}
 	for i, value := range stddev {
-		stddev[i] = math.Sqrt(value / 128.0)
+		stddev[i] = math.Sqrt(value / float64(iterations))
 	}
 	for i := range iris {
 		iris[i].Rank = stddev[i]
