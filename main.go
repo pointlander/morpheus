@@ -209,4 +209,13 @@ func main() {
 	for i := range stddev {
 		fmt.Println(iris[i].Cluster, iris[i].Label)
 	}
+	a := make(map[string][3]int)
+	for i := range iris {
+		histogram := a[iris[i].Label]
+		histogram[iris[i].Cluster]++
+		a[iris[i].Label] = histogram
+	}
+	for k, v := range a {
+		fmt.Println(k, v)
+	}
 }
