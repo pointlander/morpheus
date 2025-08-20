@@ -162,4 +162,32 @@ func main() {
 	for i := range stddev {
 		fmt.Println(iris[i].Label)
 	}
+
+	cov := make([][]float64, len(iris))
+	for i := range cov {
+		cov[i] = make([]float64, len(iris))
+	}
+	for _, measures := range results {
+		for i, v := range measures {
+			for ii, vv := range measures {
+				diff1 := avg[i] - v
+				diff2 := avg[ii] - vv
+				cov[i][ii] += diff1 * diff2
+			}
+		}
+	}
+	if len(results) > 0 {
+		for i := range cov {
+			for ii := range cov[i] {
+				cov[i][ii] = cov[i][ii] / float64(len(results))
+			}
+		}
+	}
+	fmt.Println("K=")
+	for i := range cov {
+		fmt.Println(cov[i])
+	}
+	fmt.Println("u=")
+	fmt.Println(avg)
+	fmt.Println()
 }
