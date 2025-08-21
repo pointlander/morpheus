@@ -30,6 +30,7 @@ type Fisher struct {
 	Cluster  int
 	Index    int
 	Rank     float64
+	AE       int
 }
 
 // Labels maps iris labels to ints
@@ -232,6 +233,64 @@ func main() {
 	for i := range iris {
 		histogram := a[iris[i].Label]
 		histogram[iris[i].Cluster]++
+		a[iris[i].Label] = histogram
+	}
+	for k, v := range a {
+		fmt.Println(k, v)
+	}
+
+	var auto [3]*AutoEncoder
+	for i := range auto {
+		auto[i] = NewAutoEncoder(len(iris), int64(i+1))
+	}
+	for iteration := range iterations {
+		perm := rng.Perm(len(cov))
+		for i := range cov {
+			i = perm[i]
+			input := make([]float32, len(cov[i]))
+			for iii := range cov[i] {
+				input[iii] = float32(cov[i][iii])
+			}
+			if iteration < 32 {
+				for ii := range auto {
+					auto[ii].Encode(input, input)
+				}
+				continue
+			}
+			min, index := float32(math.MaxFloat32), 0
+			for ii := range auto {
+				e := auto[ii].Measure(input, input)
+				if e < min {
+					min, index = e, ii
+				}
+			}
+			auto[index].Encode(input, input)
+		}
+	}
+	sort.Slice(iris, func(i, j int) bool {
+		return iris[i].Index < iris[j].Index
+	})
+	for i := range cov {
+		input := make([]float32, len(cov[i]))
+		for iii := range cov[i] {
+			input[iii] = float32(cov[i][iii])
+		}
+		min, index := float32(math.MaxFloat32), 0
+		for ii := range auto {
+			e := auto[ii].Measure(input, input)
+			if e < min {
+				min, index = e, ii
+			}
+		}
+		iris[i].AE = index
+	}
+	sort.Slice(iris, func(i, j int) bool {
+		return iris[i].AE < iris[j].AE
+	})
+	a = make(map[string][3]int)
+	for i := range iris {
+		histogram := a[iris[i].Label]
+		histogram[iris[i].AE]++
 		a[iris[i].Label] = histogram
 	}
 	for k, v := range a {

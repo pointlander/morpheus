@@ -44,9 +44,9 @@ func NewAutoEncoder(size int, seed int64) *AutoEncoder {
 		Rng: rand.New(rand.NewSource(seed)),
 	}
 	set := tf32.NewSet()
-	set.Add("l1", size, size/2)
-	set.Add("b1", size/2, 1)
-	set.Add("l2", size, size)
+	set.Add("l1", size, size/6)
+	set.Add("b1", size/6, 1)
+	set.Add("l2", size/3, size)
 	set.Add("b2", size, 1)
 
 	for i := range set.Weights {
