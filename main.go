@@ -240,10 +240,11 @@ func main() {
 	}
 
 	var auto [3]*AutoEncoder
+	var histogram [3]int
 	for i := range auto {
-		auto[i] = NewAutoEncoder(len(iris), int64(i+1))
+		auto[i] = NewAutoEncoder(len(iris), 1)
 	}
-	for iteration := range iterations {
+	for range 32 {
 		perm := rng.Perm(len(cov))
 		for i := range cov {
 			i = perm[i]
@@ -251,23 +252,44 @@ func main() {
 			for iii := range cov[i] {
 				input[iii] = float32(cov[i][iii])
 			}
-			if iteration < 32 {
-				for ii := range auto {
-					auto[ii].Encode(input, input)
-				}
-				continue
-			}
-			min, index := float32(math.MaxFloat32), 0
 			for ii := range auto {
-				e := auto[ii].Measure(input, input)
-				if e < min {
-					min, index = e, ii
-				}
+				auto[ii].Encode(input, input)
 			}
-			auto[index].Encode(input, input)
+			continue
 		}
 	}
-	sort.Slice(iris, func(i, j int) bool {
+	i := 0
+	for range /*iteration :=*/ iterations {
+		//perm := rng.Perm(len(cov))
+		//for i := range cov {
+		//i = perm[i]
+		input := make([]float32, len(cov[i]))
+		for iii := range cov[i] {
+			input[iii] = float32(cov[i][iii])
+		}
+		/*if iteration < 32 {
+			for ii := range auto {
+				auto[ii].Encode(input, input)
+			}
+			continue
+		}*/
+		min, minIndex, max, maxIndex := float32(math.MaxFloat32), 0, float32(0.0), 0
+		for ii := range auto {
+			e := auto[ii].Measure(input, input)
+			if e < min {
+				min, minIndex = e, ii
+			}
+			if e > max {
+				max, maxIndex = e, ii
+			}
+		}
+		auto[maxIndex].Encode(input, input)
+		histogram[minIndex]++
+		i = minIndex
+		//}
+	}
+	fmt.Println(histogram)
+	/*sort.Slice(iris, func(i, j int) bool {
 		return iris[i].Index < iris[j].Index
 	})
 	for i := range cov {
@@ -295,5 +317,5 @@ func main() {
 	}
 	for k, v := range a {
 		fmt.Println(k, v)
-	}
+	}*/
 }
