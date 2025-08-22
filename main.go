@@ -285,7 +285,7 @@ func main() {
 		}
 		auto[maxIndex].Encode(input, input)
 		histogram[minIndex]++
-		i = minIndex
+		i = minIndex * rng.Intn(50)
 		//}
 	}
 	fmt.Println(histogram)
