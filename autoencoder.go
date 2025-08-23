@@ -10,7 +10,7 @@ import (
 	"math/rand"
 	"strings"
 
-	"github.com/pointlander/gradient/tf32"
+	"github.com/pointlander/gradient/tf64"
 )
 
 const (
@@ -33,7 +33,7 @@ const (
 
 // AutoEncoder is an autoencoder
 type AutoEncoder struct {
-	Set       tf32.Set
+	Set       tf64.Set
 	Rng       *rand.Rand
 	Iteration int
 }
@@ -43,7 +43,7 @@ func NewAutoEncoder(size int, seed int64) *AutoEncoder {
 	a := AutoEncoder{
 		Rng: rand.New(rand.NewSource(seed)),
 	}
-	set := tf32.NewSet()
+	set := tf64.NewSet()
 	set.Add("l1", size, size/6)
 	set.Add("b1", size/6, 1)
 	set.Add("l2", size/3, size)
@@ -53,19 +53,19 @@ func NewAutoEncoder(size int, seed int64) *AutoEncoder {
 		w := set.Weights[i]
 		if strings.HasPrefix(w.N, "b") {
 			w.X = w.X[:cap(w.X)]
-			w.States = make([][]float32, StateTotal)
+			w.States = make([][]float64, StateTotal)
 			for ii := range w.States {
-				w.States[ii] = make([]float32, len(w.X))
+				w.States[ii] = make([]float64, len(w.X))
 			}
 			continue
 		}
 		factor := math.Sqrt(2.0 / float64(w.S[0]))
 		for range cap(w.X) {
-			w.X = append(w.X, float32(a.Rng.NormFloat64()*factor))
+			w.X = append(w.X, a.Rng.NormFloat64()*factor)
 		}
-		w.States = make([][]float32, StateTotal)
+		w.States = make([][]float64, StateTotal)
 		for ii := range w.States {
-			w.States[ii] = make([]float32, len(w.X))
+			w.States[ii] = make([]float64, len(w.X))
 		}
 	}
 
@@ -74,25 +74,21 @@ func NewAutoEncoder(size int, seed int64) *AutoEncoder {
 }
 
 // Measure measures the loss of a single input
-func (a *AutoEncoder) Measure(input, output []float32) float32 {
-	others := tf32.NewSet()
+func (a *AutoEncoder) Measure(input, output []float64) float64 {
+	others := tf64.NewSet()
 	size := len(input)
 	others.Add("input", size, 1)
 	others.Add("output", size, 1)
 	in := others.ByName["input"]
-	for _, value := range input {
-		in.X = append(in.X, value)
-	}
+	in.X = append(in.X, input...)
 	out := others.ByName["output"]
-	for _, value := range output {
-		out.X = append(out.X, value)
-	}
-	l1 := tf32.Everett(tf32.Add(tf32.Mul(a.Set.Get("l1"), others.Get("input")), a.Set.Get("b1")))
-	l2 := tf32.Add(tf32.Mul(a.Set.Get("l2"), l1), a.Set.Get("b2"))
-	loss := tf32.Sum(tf32.Quadratic(l2, others.Get("output")))
+	out.X = append(out.X, output...)
+	l1 := tf64.Everett(tf64.Add(tf64.Mul(a.Set.Get("l1"), others.Get("input")), a.Set.Get("b1")))
+	l2 := tf64.Add(tf64.Mul(a.Set.Get("l2"), l1), a.Set.Get("b2"))
+	loss := tf64.Sum(tf64.Quadratic(l2, others.Get("output")))
 
-	l := float32(0.0)
-	loss(func(a *tf32.V) bool {
+	l := 0.0
+	loss(func(a *tf64.V) bool {
 		l = a.X[0]
 		return true
 	})
@@ -108,33 +104,29 @@ func (a *AutoEncoder) pow(x float64) float64 {
 }
 
 // Encode encodes a single input
-func (a *AutoEncoder) Encode(input, output []float32) float32 {
+func (a *AutoEncoder) Encode(input, output []float64) float64 {
 	rng := rand.New(rand.NewSource(a.Rng.Int63()))
-	others := tf32.NewSet()
+	others := tf64.NewSet()
 	size := len(input)
 	others.Add("input", size, 1)
 	others.Add("output", size, 1)
 	in := others.ByName["input"]
-	for _, value := range input {
-		in.X = append(in.X, value)
-	}
+	in.X = append(in.X, input...)
 	out := others.ByName["output"]
-	for _, value := range output {
-		out.X = append(out.X, value)
-	}
+	out.X = append(out.X, output...)
 
 	dropout := map[string]interface{}{
 		"rng": rng,
 	}
 
-	l1 := tf32.Dropout(tf32.Everett(tf32.Add(tf32.Mul(a.Set.Get("l1"), others.Get("input")), a.Set.Get("b1"))), dropout)
-	l2 := tf32.Add(tf32.Mul(a.Set.Get("l2"), l1), a.Set.Get("b2"))
-	loss := tf32.Avg(tf32.Quadratic(l2, others.Get("output")))
+	l1 := tf64.Dropout(tf64.Everett(tf64.Add(tf64.Mul(a.Set.Get("l1"), others.Get("input")), a.Set.Get("b1"))), dropout)
+	l2 := tf64.Add(tf64.Mul(a.Set.Get("l2"), l1), a.Set.Get("b2"))
+	loss := tf64.Avg(tf64.Quadratic(l2, others.Get("output")))
 
-	l := float32(0.0)
+	l := 0.0
 	a.Set.Zero()
 	others.Zero()
-	l = tf32.Gradient(loss).X[0]
+	l = tf64.Gradient(loss).X[0]
 	if math.IsNaN(float64(l)) || math.IsInf(float64(l), 0) {
 		fmt.Println(a.Iteration, l)
 		return 0
@@ -143,7 +135,7 @@ func (a *AutoEncoder) Encode(input, output []float32) float32 {
 	norm := 0.0
 	for _, p := range a.Set.Weights {
 		for _, d := range p.D {
-			norm += float64(d * d)
+			norm += d * d
 		}
 	}
 	norm = math.Sqrt(norm)
@@ -154,17 +146,17 @@ func (a *AutoEncoder) Encode(input, output []float32) float32 {
 	}
 	for _, w := range a.Set.Weights {
 		for ii, d := range w.D {
-			g := d * float32(scaling)
+			g := d * scaling
 			m := B1*w.States[StateM][ii] + (1-B1)*g
 			v := B2*w.States[StateV][ii] + (1-B2)*g*g
 			w.States[StateM][ii] = m
 			w.States[StateV][ii] = v
-			mhat := m / (1 - float32(b1))
-			vhat := v / (1 - float32(b2))
+			mhat := m / (1 - b1)
+			vhat := v / (1 - b2)
 			if vhat < 0 {
 				vhat = 0
 			}
-			w.X[ii] -= Eta * mhat / (float32(math.Sqrt(float64(vhat))) + 1e-8)
+			w.X[ii] -= Eta * mhat / (math.Sqrt(vhat) + 1e-8)
 		}
 	}
 	a.Iteration++

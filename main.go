@@ -243,20 +243,21 @@ func main() {
 	for i := range auto {
 		auto[i] = NewAutoEncoder(len(iris), 1)
 	}
+	for i := range cov {
+		sum := 0.0
+		for _, value := range cov[i] {
+			sum += value
+		}
+		for ii, value := range cov[i] {
+			cov[i][ii] = value / sum
+		}
+	}
 	for range 32 {
 		var histogram [3]int
 		for i := range cov {
-			input, sum := make([]float32, len(cov[i])), float32(0.0)
-			for ii, value := range cov[i] {
-				input[ii] = float32(value)
-				sum += float32(value)
-			}
-			for ii := range input {
-				input[ii] /= sum
-			}
-			min, minIndex := float32(math.MaxFloat32), 0
+			min, minIndex := math.MaxFloat32, 0
 			for ii := range auto {
-				e := auto[ii].Measure(input, input)
+				e := auto[ii].Measure(cov[i], cov[i])
 				if e < min {
 					min, minIndex = e, ii
 				}
@@ -273,15 +274,7 @@ func main() {
 		perm := rng.Perm(len(cov))
 		for i := range cov {
 			i = perm[i]
-			input, sum := make([]float32, len(cov[i])), float32(0.0)
-			for ii, value := range cov[i] {
-				input[ii] = float32(value)
-				sum += float32(value)
-			}
-			for ii := range input {
-				input[ii] /= sum
-			}
-			auto[minIndex].Encode(input, input)
+			auto[minIndex].Encode(cov[i], cov[i])
 		}
 	}
 }
