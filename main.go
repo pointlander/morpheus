@@ -31,6 +31,26 @@ var Iris embed.FS
 //go:embed pg74.txt.bz2
 var Text embed.FS
 
+const FakeText = `The Peculiar Case of Mr. Hiram Sneed
+It was a fine, dry morning when I met Mr. Hiram Sneed—at least, that’s what I call him, though I don’t reckon he’d answer to that if you asked him direct. But as I’ll explain, it wasn’t so much the name that set him apart as it was his general disposition.
+I had been sitting on the porch of the old hotel, rocking in the sun and thinking that if the weather held, I might just take to my hammock for the day, when Hiram came wandering up the street. He was a big man, broad as a barn door, and he had a face like a mix of a bulldog and a catfish—tough but oddly saggy, like something had been trying to escape from it and hadn’t quite succeeded.
+Now, most folks might’ve taken one look and crossed the street, but not me. No, sir. I’d learned a long time ago that the best way to get a straight answer out of a man was to ask him a foolish question. So, before he could make his way into the hotel, I hailed him.
+“Say, Hiram,” I shouted, “do you reckon a man can be too rich for his own good?”
+He paused, eyeing me suspiciously, but then a smile cracked across his face like a dry log breaking open. He came on over.
+“Well, now,” he said, “that’s an interesting question. I reckon a man can have all sorts of riches, but if he ain't got no sense to enjoy 'em, I don't see much use in it. Take old Miss Dobbins down yonder. She’s got more money than a river has fish, but she’ll spend a whole afternoon fretting over whether her curtains are too lavender for the parlor.”
+I nodded thoughtfully, but I could tell he wasn’t finished.
+“Riches,” he continued, “ain’t worth a lick if you ain't got the sense to know what to do with ‘em. I seen a feller once—young Buck Trumble, name was—who got himself a hundred acres of land from his uncle. A hundred acres, mind you! But when he found out it was mostly swamp, he just sat right down in the mud and cried like a newborn calf.”
+I laughed, mostly to myself, but I had to ask him more.
+“Was he really that upset?”
+“Well, not at first,” Hiram said, “but when he figured out there wasn’t no dry land to build his house on, he started making himself a bit of a spectacle. I heard him hollering all the way from the creek, cursing the trees and the snakes, saying that the swamp had cursed him, and he was cursed in return. But I reckon the swamp wasn’t at fault—he was just too stubborn to see the whole picture.”
+I raised an eyebrow. “And what’d you tell him?”
+“Oh, I told him to take his boots off, roll up his pants, and take a walk through it. He did, and by the time he got to the far side, he had himself a mind full of new ideas. That swamp, you see, wasn’t a curse. It was an opportunity. He’s a successful businessman now, selling swamp muck for fertilizer.”
+I couldn’t help but laugh again. “So, all that fuss for some muck?”
+Hiram chuckled too. “Well, sure. The way I see it, a feller can spend his whole life pining after a dry patch of land, or he can make himself a fortune out of something no one else would touch. It’s all about how you look at things.”
+I leaned back in my chair, scratching my chin. “I reckon you might be right. Maybe I’ve been too busy looking for my own dry land.”
+Hiram’s smile faded a little, but he tipped his hat. “I reckon you have. But, sometimes, it’s best to look at the swamp with a little less disgust. You might be surprised by what you find.”
+And with that, he turned and walked off down the road, leaving me to wonder if I should go searching for a swamp or if maybe I’d just stick to my porch a while longer.`
+
 // Fisher is the fisher iris data
 type Fisher struct {
 	Measures []float64
