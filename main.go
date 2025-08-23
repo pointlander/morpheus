@@ -6,15 +6,18 @@ package main
 
 import (
 	"archive/zip"
+	"bufio"
 	"bytes"
 	"embed"
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"io"
 	"math"
 	"math/rand"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/alixaxel/pagerank"
 	"github.com/pointlander/morpheus/kmeans"
@@ -97,7 +100,13 @@ func Load() []Fisher {
 	return fisher
 }
 
-func main() {
+var (
+	// FlagIris is the iris clusterting mode
+	FlagIris = flag.Bool("iris", false, "iris clustering")
+)
+
+// IrisMode is the iris clustering mode
+func IrisMode() {
 	iris := Load()
 	rng := rand.New(rand.NewSource(1))
 	const iterations = 512
@@ -276,5 +285,46 @@ func main() {
 			i = perm[i]
 			auto[minIndex].Encode(cov[i], cov[i])
 		}
+	}
+}
+
+func main() {
+	flag.Parse()
+
+	if *FlagIris {
+		IrisMode()
+		return
+	}
+
+	reader, err := zip.OpenReader("glove.2024.wikigiga.50d.zip")
+	if err != nil {
+		panic(err)
+	}
+	defer reader.Close()
+	input, err := reader.File[0].Open()
+	if err != nil {
+		panic(err)
+	}
+	defer input.Close()
+	scanner := bufio.NewScanner(input)
+	type Line struct {
+		Word   string
+		Vector [50]float32
+	}
+	words := make([]Line, 0, 8)
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Split(line, " ")
+		word := Line{
+			Word: strings.TrimSpace(parts[0]),
+		}
+		for i, part := range parts[1:] {
+			value, err := strconv.ParseFloat(strings.TrimSpace(part), 32)
+			if err != nil {
+				panic(err)
+			}
+			word.Vector[i] = float32(value)
+		}
+		words = append(words, word)
 	}
 }
