@@ -8,6 +8,7 @@ import (
 	"archive/zip"
 	"bufio"
 	"bytes"
+	"compress/bzip2"
 	"embed"
 	"encoding/csv"
 	"flag"
@@ -15,6 +16,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,6 +27,9 @@ import (
 
 //go:embed iris.zip
 var Iris embed.FS
+
+//go:embed pg74.txt.bz2
+var Text embed.FS
 
 // Fisher is the fisher iris data
 type Fisher struct {
@@ -327,4 +332,39 @@ func main() {
 		}
 		words = append(words, word)
 	}
+	index := make(map[string]*Line, len(words))
+	for i := range words {
+		index[words[i].Word] = &words[i]
+	}
+
+	file, err := Text.Open("pg74.txt.bz2")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+	breader := bzip2.NewReader(file)
+	data, err := io.ReadAll(breader)
+	if err != nil {
+		panic(err)
+	}
+	reg := regexp.MustCompile(`\s+`)
+	parts := reg.Split(string(data), -1)
+	reg = regexp.MustCompile(`[\p{P}]+`)
+	count := 0
+	human := make([]*Line, 0, 8)
+	for _, part := range parts[512:] {
+		part = reg.ReplaceAllString(part, "")
+		word := index[strings.ToLower(part)]
+		if word != nil {
+			human = append(human, word)
+			fmt.Println(word.Word)
+			count++
+		} else {
+			fmt.Println(part, "--------------------")
+		}
+		if count >= 100 {
+			break
+		}
+	}
+	fmt.Println(len(human))
 }
