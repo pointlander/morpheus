@@ -31,7 +31,7 @@ var Iris embed.FS
 //go:embed pg74.txt.bz2
 var Text embed.FS
 
-const FakeText = `The Peculiar Case of Mr. Hiram Sneed
+const FakeText0 = `The Peculiar Case of Mr. Hiram Sneed
 It was a fine, dry morning when I met Mr. Hiram Sneed—at least, that’s what I call him, though I don’t reckon he’d answer to that if you asked him direct. But as I’ll explain, it wasn’t so much the name that set him apart as it was his general disposition.
 I had been sitting on the porch of the old hotel, rocking in the sun and thinking that if the weather held, I might just take to my hammock for the day, when Hiram came wandering up the street. He was a big man, broad as a barn door, and he had a face like a mix of a bulldog and a catfish—tough but oddly saggy, like something had been trying to escape from it and hadn’t quite succeeded.
 Now, most folks might’ve taken one look and crossed the street, but not me. No, sir. I’d learned a long time ago that the best way to get a straight answer out of a man was to ask him a foolish question. So, before he could make his way into the hotel, I hailed him.
@@ -51,7 +51,7 @@ I leaned back in my chair, scratching my chin. “I reckon you might be right. M
 Hiram’s smile faded a little, but he tipped his hat. “I reckon you have. But, sometimes, it’s best to look at the swamp with a little less disgust. You might be surprised by what you find.”
 And with that, he turned and walked off down the road, leaving me to wonder if I should go searching for a swamp or if maybe I’d just stick to my porch a while longer.`
 
-const fakeText1 = `A Riverbank Tale
+const FakeText1 = `A Riverbank Tale
 It was a Tuesday hotter than a stove lid, and the Mississippi lay stretched out like a big, lazy dog that didn’t aim to move till winter. Down at the bend, young Lem Haskins was trying to coax his mule into the water, for reasons known only to himself and, perhaps, the mule—though the mule wasn’t talkative on the matter.
 “Git in there, Clyde,” Lem said, tugging on the rope. “If you’re fixin’ to die of thirst one day, don’t let it be within sneezin’ distance of the river.”
 Clyde flicked his tail and looked around with a solemn air, as though he had business far too dignified to be concerned with a boy’s schemes.
@@ -379,24 +379,120 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	reg := regexp.MustCompile(`\s+`)
-	parts := reg.Split(string(data), -1)
-	reg = regexp.MustCompile(`[\p{P}]+`)
-	count := 0
-	human := make([]*Line, 0, 8)
-	for _, part := range parts[512:] {
-		part = reg.ReplaceAllString(part, "")
-		word := index[strings.ToLower(part)]
-		if word != nil {
-			human = append(human, word)
-			fmt.Println(word.Word)
-			count++
-		} else {
-			fmt.Println(part, "--------------------")
+
+	parse := func(text string, offset int) []*Line {
+		reg := regexp.MustCompile(`\s+`)
+		parts := reg.Split(text, -1)
+		reg = regexp.MustCompile(`[\p{P}]+`)
+		count := 0
+		lines := make([]*Line, 0, 8)
+		for _, part := range parts[offset:] {
+			part = reg.ReplaceAllString(part, "")
+			word := index[strings.ToLower(part)]
+			if word != nil {
+				lines = append(lines, word)
+				count++
+			}
+			if count >= 100 {
+				break
+			}
 		}
-		if count >= 100 {
-			break
-		}
+		return lines
 	}
-	fmt.Println(len(human))
+	human := parse(string(data), 1024)
+	fake0 := parse(FakeText0, 0)
+	fake1 := parse(FakeText1, 0)
+	fmt.Println(len(human), len(fake0), len(fake1))
+
+	vectorize := func(lines []*Line) []float64 {
+		rng := rand.New(rand.NewSource(1))
+		const iterations = 8
+		results := make([][]float64, iterations)
+		for iteration := range iterations {
+			a, b := NewMatrix(50, 50, make([]float64, 50*50)...), NewMatrix(50, 50, make([]float64, 50*50)...)
+			index := 0
+			for range a.Rows {
+				for range a.Cols {
+					a.Data[index] = rng.NormFloat64()
+					b.Data[index] = rng.NormFloat64()
+					index++
+				}
+			}
+			a = a.Softmax(1)
+			b = b.Softmax(1)
+			graph := pagerank.NewGraph()
+			for i := range lines {
+				for ii := range lines {
+					x, y := NewMatrix(50, 1, make([]float64, 50)...), NewMatrix(50, 1, make([]float64, 50)...)
+					for i, value := range lines[i].Vector {
+						if value < 0 {
+							value = -value
+						}
+						x.Data[i] = float64(value)
+					}
+					for i, value := range lines[ii].Vector {
+						if value < 0 {
+							value = -value
+						}
+						y.Data[i] = float64(value)
+					}
+					x = a.MulT(x)
+					y = b.MulT(y)
+					cs := x.CS(y)
+					graph.Link(uint32(i), uint32(ii), cs)
+				}
+			}
+			result := make([]float64, len(lines))
+			graph.Rank(1.0, 1e-6, func(node uint32, rank float64) {
+				result[node] = rank
+			})
+			results[iteration] = result
+		}
+		avg := make([]float64, len(lines))
+		for _, result := range results {
+			for i, value := range result {
+				avg[i] += value
+			}
+		}
+		for i, value := range avg {
+			avg[i] = value / float64(iterations)
+		}
+
+		cov := make([][]float64, len(lines))
+		for i := range cov {
+			cov[i] = make([]float64, len(lines))
+		}
+		for _, measures := range results {
+			for i, v := range measures {
+				for ii, vv := range measures {
+					diff1 := avg[i] - v
+					diff2 := avg[ii] - vv
+					cov[i][ii] += diff1 * diff2
+				}
+			}
+		}
+		if len(results) > 0 {
+			for i := range cov {
+				for ii := range cov[i] {
+					cov[i][ii] = cov[i][ii] / float64(len(results))
+				}
+			}
+		}
+		embedding := make([]float64, 0, 8)
+		for i := range cov {
+			embedding = append(embedding, cov[i]...)
+		}
+		return embedding
+	}
+
+	vhuman := NewMatrix(100*100, 1, vectorize(human)...)
+	vfake0 := NewMatrix(100*100, 1, vectorize(fake0)...)
+	vfake1 := NewMatrix(100*100, 1, vectorize(fake1)...)
+	fmt.Println(len(vhuman.Data), len(vfake0.Data), len(vfake1.Data))
+	cs0 := vhuman.CS(vfake0)
+	cs1 := vhuman.CS(vfake1)
+	cs2 := vfake0.CS(vfake1)
+	fmt.Println("human vs fake0", cs0)
+	fmt.Println("human vs fake1", cs1)
+	fmt.Println("fake0 vs fake1", cs2)
 }
