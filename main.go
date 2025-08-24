@@ -51,6 +51,18 @@ I leaned back in my chair, scratching my chin. “I reckon you might be right. M
 Hiram’s smile faded a little, but he tipped his hat. “I reckon you have. But, sometimes, it’s best to look at the swamp with a little less disgust. You might be surprised by what you find.”
 And with that, he turned and walked off down the road, leaving me to wonder if I should go searching for a swamp or if maybe I’d just stick to my porch a while longer.`
 
+const fakeText1 = `A Riverbank Tale
+It was a Tuesday hotter than a stove lid, and the Mississippi lay stretched out like a big, lazy dog that didn’t aim to move till winter. Down at the bend, young Lem Haskins was trying to coax his mule into the water, for reasons known only to himself and, perhaps, the mule—though the mule wasn’t talkative on the matter.
+“Git in there, Clyde,” Lem said, tugging on the rope. “If you’re fixin’ to die of thirst one day, don’t let it be within sneezin’ distance of the river.”
+Clyde flicked his tail and looked around with a solemn air, as though he had business far too dignified to be concerned with a boy’s schemes.
+About then, Old Man Perkins came limping down the path, pipe in mouth, cane thumping. He stopped to watch the contest between boy and beast.
+“Lem,” he drawled, “that mule knows more about water than you do about sense. If he ain’t going in, it’s ‘cause he reckons the river’s got plans you wouldn’t care to meet.”
+Lem puffed up, red-faced. “Mister Perkins, I reckon Clyde here don’t know beans about plans, ‘cept where to find ‘em in a feed sack.”
+The mule brayed so loud it echoed up the trees, like he was laughing at both of them. And I’ll be switched if, the very next minute, a big old log floated past, with a snake coiled up on top, mean as the devil’s own whip.
+Lem went quiet. Clyde stamped a hoof, turned his ears, and gave Lem a look that said as plain as words: Next time, boy, maybe listen to the mule.
+Old Man Perkins puffed his pipe, grinning around it. “Well now,” he said, “that’s the trouble with youth—always tryin’ to teach wisdom somethin’ new.”
+And the river rolled on, chuckling at the whole spectacle, like it had seen the same story play out a thousand times before and planned to see it a thousand times again.`
+
 // Fisher is the fisher iris data
 type Fisher struct {
 	Measures []float64
