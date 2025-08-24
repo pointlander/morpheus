@@ -380,29 +380,20 @@ func main() {
 		panic(err)
 	}
 
-	parse := func(text string, offset int) []*Line {
+	parse := func(text string) []*Line {
 		reg := regexp.MustCompile(`\s+`)
 		parts := reg.Split(text, -1)
 		reg = regexp.MustCompile(`[\p{P}]+`)
-		count := 0
 		lines := make([]*Line, 0, 8)
-		for _, part := range parts[offset:] {
+		for _, part := range parts {
 			part = reg.ReplaceAllString(part, "")
 			word := index[strings.ToLower(part)]
 			if word != nil {
 				lines = append(lines, word)
-				count++
-			}
-			if count >= 100 {
-				break
 			}
 		}
 		return lines
 	}
-	human := parse(string(data), 1024)
-	fake0 := parse(FakeText0, 0)
-	fake1 := parse(FakeText1, 0)
-	fmt.Println(len(human), len(fake0), len(fake1))
 
 	vectorize := func(lines []*Line) []float64 {
 		rng := rand.New(rand.NewSource(1))
@@ -485,14 +476,28 @@ func main() {
 		return embedding
 	}
 
-	vhuman := NewMatrix(100*100, 1, vectorize(human)...)
-	vfake0 := NewMatrix(100*100, 1, vectorize(fake0)...)
-	vfake1 := NewMatrix(100*100, 1, vectorize(fake1)...)
-	fmt.Println(len(vhuman.Data), len(vfake0.Data), len(vfake1.Data))
-	cs0 := vhuman.CS(vfake0)
-	cs1 := vhuman.CS(vfake1)
-	cs2 := vfake0.CS(vfake1)
-	fmt.Println("human vs fake0", cs0)
-	fmt.Println("human vs fake1", cs1)
-	fmt.Println("fake0 vs fake1", cs2)
+	cs0, cs1, cs2 := 0.0, 0.0, 0.0
+	rng := rand.New(rand.NewSource(1))
+	human := parse(string(data))
+	fake0 := parse(FakeText0)
+	fake1 := parse(FakeText1)
+	for i := range 32 {
+		size := rng.Intn(50) + 50
+		fmt.Println(i)
+		index := rng.Intn(len(human) - size)
+		human := human[index : index+size]
+		index = rng.Intn(len(fake0) - size)
+		fake0 := fake0[index : index+size]
+		index = rng.Intn(len(fake1) - size)
+		fake1 := fake1[index : index+size]
+		vhuman := NewMatrix(size*size, 1, vectorize(human)...)
+		vfake0 := NewMatrix(size*size, 1, vectorize(fake0)...)
+		vfake1 := NewMatrix(size*size, 1, vectorize(fake1)...)
+		cs0 += vhuman.CS(vfake0)
+		cs1 += vhuman.CS(vfake1)
+		cs2 += vfake0.CS(vfake1)
+	}
+	fmt.Println("human vs fake0", cs0/32.0)
+	fmt.Println("human vs fake1", cs1/32.0)
+	fmt.Println("fake0 vs fake1", cs2/32.0)
 }
