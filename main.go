@@ -481,7 +481,8 @@ func main() {
 	human := parse(string(data))
 	fake0 := parse(FakeText0)
 	fake1 := parse(FakeText1)
-	for i := range 32 {
+	const samples = 64
+	for i := range samples {
 		size := rng.Intn(50) + 50
 		fmt.Println(i)
 		index := rng.Intn(len(human) - size)
@@ -497,7 +498,7 @@ func main() {
 		cs1 += vhuman.CS(vfake1)
 		cs2 += vfake0.CS(vfake1)
 	}
-	fmt.Println("human vs fake0", cs0/32.0)
-	fmt.Println("human vs fake1", cs1/32.0)
-	fmt.Println("fake0 vs fake1", cs2/32.0)
+	fmt.Println("human vs fake0", cs0/float64(samples))
+	fmt.Println("human vs fake1", cs1/float64(samples))
+	fmt.Println("fake0 vs fake1", cs2/float64(samples))
 }
