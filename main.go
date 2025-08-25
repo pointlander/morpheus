@@ -395,7 +395,7 @@ func main() {
 		return lines
 	}
 
-	vectorize := func(lines []*Line) []float64 {
+	vectorize := func(lines []*Line) Matrix[float64] {
 		rng := rand.New(rand.NewSource(1))
 		const iterations = 8
 		results := make([][]float64, iterations)
@@ -469,9 +469,11 @@ func main() {
 				}
 			}
 		}
-		embedding := make([]float64, 0, 8)
+		embedding := NewMatrix(len(lines), len(lines), make([]float64, len(lines)*len(lines))...)
 		for i := range cov {
-			embedding = append(embedding, cov[i]...)
+			for ii, value := range cov[i] {
+				embedding.Data[i*len(lines)+ii] = value
+			}
 		}
 		return embedding
 	}
@@ -491,9 +493,9 @@ func main() {
 		fake0 := fake0[index : index+size]
 		index = rng.Intn(len(fake1) - size)
 		fake1 := fake1[index : index+size]
-		vhuman := NewMatrix(size*size, 1, vectorize(human)...)
-		vfake0 := NewMatrix(size*size, 1, vectorize(fake0)...)
-		vfake1 := NewMatrix(size*size, 1, vectorize(fake1)...)
+		vhuman := vectorize(human)
+		vfake0 := vectorize(fake0)
+		vfake1 := vectorize(fake1)
 		cs0 += vhuman.CS(vfake0)
 		cs1 += vhuman.CS(vfake1)
 		cs2 += vfake0.CS(vfake1)

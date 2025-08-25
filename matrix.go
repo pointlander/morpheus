@@ -405,8 +405,16 @@ func softmax[T Float](values []T) {
 
 // CS implements cosine similarity
 func (m Matrix[T]) CS(n Matrix[T]) T {
-	ab, aa, bb := dot(m.Data, n.Data), dot(m.Data, m.Data), dot(n.Data, n.Data)
-	return ab / (T(math.Sqrt(float64(aa))) * T(math.Sqrt(float64(bb))))
+	var sum T
+	var count T
+	for i := 0; i < len(m.Data); i += m.Cols {
+		md := m.Data[i : i+m.Cols]
+		nd := n.Data[i : i+m.Cols]
+		ab, aa, bb := dot(md, nd), dot(md, md), dot(nd, nd)
+		sum += ab / (T(math.Sqrt(float64(aa))) * T(math.Sqrt(float64(bb))))
+		count++
+	}
+	return sum / count
 }
 
 // SelfAttention computes the self attention of Q, K, V
