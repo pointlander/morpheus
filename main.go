@@ -397,7 +397,7 @@ func main() {
 
 	vectorize := func(lines []*Line) Matrix[float64] {
 		rng := rand.New(rand.NewSource(1))
-		const iterations = 8
+		const iterations = 32
 		results := make([][]float64, iterations)
 		for iteration := range iterations {
 			a, b := NewMatrix(100, 100, make([]float64, 100*100)...), NewMatrix(100, 100, make([]float64, 100*100)...)
