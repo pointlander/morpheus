@@ -396,7 +396,7 @@ func main() {
 		return lines
 	}
 
-	vectorize := func(linesA, linesB []*Line, seed int64) (Matrix[float64], Matrix[float64]) {
+	vectorize := func(linesA, linesB []*Line, seed int64) (Matrix[float64], Matrix[float64], []int) {
 		lines := make([]*Line, len(linesA)+len(linesB))
 		copy(lines[:len(linesA)], linesA)
 		copy(lines[len(linesA):], linesB)
@@ -475,6 +475,31 @@ func main() {
 				}
 			}
 		}
+
+		meta := make([][]float64, len(lines))
+		for i := range meta {
+			meta[i] = make([]float64, len(lines))
+		}
+		const k = 2
+		for i := 0; i < 33; i++ {
+			clusters, _, err := kmeans.Kmeans(int64(i+1), cov, k, kmeans.SquaredEuclideanDistance, -1)
+			if err != nil {
+				panic(err)
+			}
+			for i := 0; i < len(meta); i++ {
+				target := clusters[i]
+				for j, v := range clusters {
+					if v == target {
+						meta[i][j]++
+					}
+				}
+			}
+		}
+		clusters, _, err := kmeans.Kmeans(1, meta, 2, kmeans.SquaredEuclideanDistance, -1)
+		if err != nil {
+			panic(err)
+		}
+
 		embedding := NewMatrix(len(lines), len(linesA), make([]float64, len(lines)*len(linesA))...)
 		for i := range cov[:len(linesA)] {
 			for ii, value := range cov[i] {
@@ -487,10 +512,11 @@ func main() {
 				embedding1.Data[i*len(lines)+ii] = value
 			}
 		}
-		return embedding, embedding1
+		return embedding, embedding1, clusters
 	}
 
 	var cs [6]float64
+	var diff [6][2]float64
 	rng := rand.New(rand.NewSource(1))
 	human := parse(string(data))
 	fake0 := parse(FakeText0)
@@ -513,24 +539,55 @@ func main() {
 		fake1b := fake1[index : index+size]
 		var wg sync.WaitGroup
 		var (
-			v [12]Matrix[float64]
+			v        [12]Matrix[float64]
+			clusters [6][]int
 		)
 		seeds := make([]int64, 6)
 		for ii := range seeds {
 			seeds[ii] = rng.Int63()
 		}
-		wg.Go(func() { v[0], v[1] = vectorize(humana, fake0a, seeds[0]) })
-		wg.Go(func() { v[2], v[3] = vectorize(humana, fake1a, seeds[1]) })
-		wg.Go(func() { v[4], v[5] = vectorize(fake0a, fake1a, seeds[2]) })
-		wg.Go(func() { v[6], v[7] = vectorize(humana, humanb, seeds[3]) })
-		wg.Go(func() { v[8], v[9] = vectorize(fake0a, fake0b, seeds[4]) })
-		wg.Go(func() { v[10], v[11] = vectorize(fake1a, fake1b, seeds[5]) })
+		wg.Go(func() { v[0], v[1], clusters[0] = vectorize(humana, fake0a, seeds[0]) })
+		wg.Go(func() { v[2], v[3], clusters[1] = vectorize(humana, fake1a, seeds[1]) })
+		wg.Go(func() { v[4], v[5], clusters[2] = vectorize(fake0a, fake1a, seeds[2]) })
+		wg.Go(func() { v[6], v[7], clusters[3] = vectorize(humana, humanb, seeds[3]) })
+		wg.Go(func() { v[8], v[9], clusters[4] = vectorize(fake0a, fake0b, seeds[4]) })
+		wg.Go(func() { v[10], v[11], clusters[5] = vectorize(fake1a, fake1b, seeds[5]) })
 		wg.Wait()
 
 		c := 0
 		for i := 0; i < len(v); i += 2 {
 			cs[c] += v[i].CS(v[i+1])
 			c++
+		}
+
+		x := 0
+		for i := 0; i < len(v); i += 2 {
+			a, b, c, d := 0, 0, 0, 0
+			for ii := range v[i].Rows {
+				if clusters[x][ii] == 0 {
+					a++
+				} else {
+					b++
+				}
+			}
+			for ii := range v[i+1].Rows {
+				if clusters[x][ii+v[i].Rows] == 0 {
+					c++
+				} else {
+					d++
+				}
+			}
+			df := a - c
+			if df < 0 {
+				df = -df
+			}
+			diff[x][0] += float64(df)
+			df = b - d
+			if df < 0 {
+				df = -df
+			}
+			diff[x][1] += float64(df)
+			x++
 		}
 	}
 	fmt.Println("human vs fake0", cs[0]/float64(samples))
@@ -539,4 +596,5 @@ func main() {
 	fmt.Println("human", cs[3]/float64(samples))
 	fmt.Println("fake0", cs[4]/float64(samples))
 	fmt.Println("fake1", cs[5]/float64(samples))
+	fmt.Println(diff)
 }
