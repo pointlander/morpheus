@@ -20,6 +20,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/alixaxel/pagerank"
 	"github.com/pointlander/morpheus/kmeans"
@@ -395,8 +396,8 @@ func main() {
 		return lines
 	}
 
-	vectorize := func(lines []*Line) Matrix[float64] {
-		rng := rand.New(rand.NewSource(1))
+	vectorize := func(lines []*Line, seed int64) Matrix[float64] {
+		rng := rand.New(rand.NewSource(seed))
 		const iterations = 32
 		results := make([][]float64, iterations)
 		for iteration := range iterations {
@@ -501,12 +502,26 @@ func main() {
 		fake0b := fake0[index : index+size]
 		index = rng.Intn(len(fake1) - size)
 		fake1b := fake1[index : index+size]
-		vhuman := vectorize(humana)
-		vfake0 := vectorize(fake0a)
-		vfake1 := vectorize(fake1a)
-		vhumanb := vectorize(humanb)
-		vfake0b := vectorize(fake0b)
-		vfake1b := vectorize(fake1b)
+		var wg sync.WaitGroup
+		var (
+			vhuman  Matrix[float64]
+			vfake0  Matrix[float64]
+			vfake1  Matrix[float64]
+			vhumanb Matrix[float64]
+			vfake0b Matrix[float64]
+			vfake1b Matrix[float64]
+		)
+		seeds := make([]int64, 6)
+		for ii := range seeds {
+			seeds[ii] = rng.Int63()
+		}
+		wg.Go(func() { vhuman = vectorize(humana, seeds[0]) })
+		wg.Go(func() { vfake0 = vectorize(fake0a, seeds[1]) })
+		wg.Go(func() { vfake1 = vectorize(fake1a, seeds[2]) })
+		wg.Go(func() { vhumanb = vectorize(humanb, seeds[3]) })
+		wg.Go(func() { vfake0b = vectorize(fake0b, seeds[4]) })
+		wg.Go(func() { vfake1b = vectorize(fake1b, seeds[5]) })
+		wg.Wait()
 		cs0 += vhuman.CS(vfake0)
 		cs1 += vhuman.CS(vfake1)
 		cs2 += vfake0.CS(vfake1)
