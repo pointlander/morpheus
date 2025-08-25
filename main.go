@@ -401,7 +401,7 @@ func main() {
 		copy(lines[:len(linesA)], linesA)
 		copy(lines[len(linesA):], linesB)
 		rng := rand.New(rand.NewSource(seed))
-		const iterations = 8
+		const iterations = 16
 		results := make([][]float64, iterations)
 		for iteration := range iterations {
 			a, b := NewMatrix(100, 100, make([]float64, 100*100)...), NewMatrix(100, 100, make([]float64, 100*100)...)
@@ -495,7 +495,7 @@ func main() {
 	human := parse(string(data))
 	fake0 := parse(FakeText0)
 	fake1 := parse(FakeText1)
-	const samples = 8
+	const samples = 16
 	for i := range samples {
 		size := rng.Intn(50) + 50
 		fmt.Println(i)
