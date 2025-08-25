@@ -396,9 +396,12 @@ func main() {
 		return lines
 	}
 
-	vectorize := func(lines []*Line, seed int64) Matrix[float64] {
+	vectorize := func(linesA, linesB []*Line, seed int64) (Matrix[float64], Matrix[float64]) {
+		lines := make([]*Line, len(linesA)+len(linesB))
+		copy(lines[:len(linesA)], linesA)
+		copy(lines[len(linesA):], linesB)
 		rng := rand.New(rand.NewSource(seed))
-		const iterations = 32
+		const iterations = 8
 		results := make([][]float64, iterations)
 		for iteration := range iterations {
 			a, b := NewMatrix(100, 100, make([]float64, 100*100)...), NewMatrix(100, 100, make([]float64, 100*100)...)
@@ -472,21 +475,27 @@ func main() {
 				}
 			}
 		}
-		embedding := NewMatrix(len(lines), len(lines), make([]float64, len(lines)*len(lines))...)
-		for i := range cov {
+		embedding := NewMatrix(len(lines), len(linesA), make([]float64, len(lines)*len(linesA))...)
+		for i := range cov[:len(linesA)] {
 			for ii, value := range cov[i] {
 				embedding.Data[i*len(lines)+ii] = value
 			}
 		}
-		return embedding
+		embedding1 := NewMatrix(len(lines), len(linesB), make([]float64, len(lines)*len(linesB))...)
+		for i := range cov[len(linesA):] {
+			for ii, value := range cov[i+len(linesA)] {
+				embedding1.Data[i*len(lines)+ii] = value
+			}
+		}
+		return embedding, embedding1
 	}
 
-	cs0, cs1, cs2, cs3, cs4, cs5 := 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+	var cs [6]float64
 	rng := rand.New(rand.NewSource(1))
 	human := parse(string(data))
 	fake0 := parse(FakeText0)
 	fake1 := parse(FakeText1)
-	const samples = 64
+	const samples = 8
 	for i := range samples {
 		size := rng.Intn(50) + 50
 		fmt.Println(i)
@@ -504,35 +513,30 @@ func main() {
 		fake1b := fake1[index : index+size]
 		var wg sync.WaitGroup
 		var (
-			vhuman  Matrix[float64]
-			vfake0  Matrix[float64]
-			vfake1  Matrix[float64]
-			vhumanb Matrix[float64]
-			vfake0b Matrix[float64]
-			vfake1b Matrix[float64]
+			v [12]Matrix[float64]
 		)
 		seeds := make([]int64, 6)
 		for ii := range seeds {
 			seeds[ii] = rng.Int63()
 		}
-		wg.Go(func() { vhuman = vectorize(humana, seeds[0]) })
-		wg.Go(func() { vfake0 = vectorize(fake0a, seeds[1]) })
-		wg.Go(func() { vfake1 = vectorize(fake1a, seeds[2]) })
-		wg.Go(func() { vhumanb = vectorize(humanb, seeds[3]) })
-		wg.Go(func() { vfake0b = vectorize(fake0b, seeds[4]) })
-		wg.Go(func() { vfake1b = vectorize(fake1b, seeds[5]) })
+		wg.Go(func() { v[0], v[1] = vectorize(humana, fake0a, seeds[0]) })
+		wg.Go(func() { v[2], v[3] = vectorize(humana, fake1a, seeds[1]) })
+		wg.Go(func() { v[4], v[5] = vectorize(fake0a, fake1a, seeds[2]) })
+		wg.Go(func() { v[6], v[7] = vectorize(humana, humanb, seeds[3]) })
+		wg.Go(func() { v[8], v[9] = vectorize(fake0a, fake0b, seeds[4]) })
+		wg.Go(func() { v[10], v[11] = vectorize(fake1a, fake1b, seeds[5]) })
 		wg.Wait()
-		cs0 += vhuman.CS(vfake0)
-		cs1 += vhuman.CS(vfake1)
-		cs2 += vfake0.CS(vfake1)
-		cs3 += vhuman.CS(vhumanb)
-		cs4 += vfake0.CS(vfake0b)
-		cs5 += vfake1.CS(vfake1b)
+
+		c := 0
+		for i := 0; i < len(v); i += 2 {
+			cs[c] += v[i].CS(v[i+1])
+			c++
+		}
 	}
-	fmt.Println("human vs fake0", cs0/float64(samples))
-	fmt.Println("human vs fake1", cs1/float64(samples))
-	fmt.Println("fake0 vs fake1", cs2/float64(samples))
-	fmt.Println("human", cs3/float64(samples))
-	fmt.Println("fake0", cs4/float64(samples))
-	fmt.Println("fake1", cs5/float64(samples))
+	fmt.Println("human vs fake0", cs[0]/float64(samples))
+	fmt.Println("human vs fake1", cs[1]/float64(samples))
+	fmt.Println("fake0 vs fake1", cs[2]/float64(samples))
+	fmt.Println("human", cs[3]/float64(samples))
+	fmt.Println("fake0", cs[4]/float64(samples))
+	fmt.Println("fake1", cs[5]/float64(samples))
 }
