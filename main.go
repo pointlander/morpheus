@@ -400,7 +400,7 @@ func main() {
 		const iterations = 8
 		results := make([][]float64, iterations)
 		for iteration := range iterations {
-			a, b := NewMatrix(50, 50, make([]float64, 50*50)...), NewMatrix(50, 50, make([]float64, 50*50)...)
+			a, b := NewMatrix(100, 100, make([]float64, 100*100)...), NewMatrix(100, 100, make([]float64, 100*100)...)
 			index := 0
 			for range a.Rows {
 				for range a.Cols {
@@ -414,16 +414,18 @@ func main() {
 			graph := pagerank.NewGraph()
 			for i := range lines {
 				for ii := range lines {
-					x, y := NewMatrix(50, 1, make([]float64, 50)...), NewMatrix(50, 1, make([]float64, 50)...)
+					x, y := NewMatrix(100, 1, make([]float64, 100)...), NewMatrix(100, 1, make([]float64, 100)...)
 					for i, value := range lines[i].Vector {
 						if value < 0 {
-							value = -value
+							x.Data[50+i] = float64(-value)
+							continue
 						}
 						x.Data[i] = float64(value)
 					}
 					for i, value := range lines[ii].Vector {
 						if value < 0 {
-							value = -value
+							y.Data[50+i] = float64(-value)
+							continue
 						}
 						y.Data[i] = float64(value)
 					}
