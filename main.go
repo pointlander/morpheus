@@ -480,7 +480,7 @@ func main() {
 		return embedding
 	}
 
-	cs0, cs1, cs2 := 0.0, 0.0, 0.0
+	cs0, cs1, cs2, cs3, cs4, cs5 := 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 	rng := rand.New(rand.NewSource(1))
 	human := parse(string(data))
 	fake0 := parse(FakeText0)
@@ -490,19 +490,34 @@ func main() {
 		size := rng.Intn(50) + 50
 		fmt.Println(i)
 		index := rng.Intn(len(human) - size)
-		human := human[index : index+size]
+		humana := human[index : index+size]
 		index = rng.Intn(len(fake0) - size)
-		fake0 := fake0[index : index+size]
+		fake0a := fake0[index : index+size]
 		index = rng.Intn(len(fake1) - size)
-		fake1 := fake1[index : index+size]
-		vhuman := vectorize(human)
-		vfake0 := vectorize(fake0)
-		vfake1 := vectorize(fake1)
+		fake1a := fake1[index : index+size]
+		index = rng.Intn(len(human) - size)
+		humanb := human[index : index+size]
+		index = rng.Intn(len(fake0) - size)
+		fake0b := fake0[index : index+size]
+		index = rng.Intn(len(fake1) - size)
+		fake1b := fake1[index : index+size]
+		vhuman := vectorize(humana)
+		vfake0 := vectorize(fake0a)
+		vfake1 := vectorize(fake1a)
+		vhumanb := vectorize(humanb)
+		vfake0b := vectorize(fake0b)
+		vfake1b := vectorize(fake1b)
 		cs0 += vhuman.CS(vfake0)
 		cs1 += vhuman.CS(vfake1)
 		cs2 += vfake0.CS(vfake1)
+		cs3 += vhuman.CS(vhumanb)
+		cs4 += vfake0.CS(vfake0b)
+		cs5 += vfake1.CS(vfake1b)
 	}
 	fmt.Println("human vs fake0", cs0/float64(samples))
 	fmt.Println("human vs fake1", cs1/float64(samples))
 	fmt.Println("fake0 vs fake1", cs2/float64(samples))
+	fmt.Println("human", cs3/float64(samples))
+	fmt.Println("fake0", cs4/float64(samples))
+	fmt.Println("fake1", cs5/float64(samples))
 }
