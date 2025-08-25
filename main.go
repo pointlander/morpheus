@@ -515,8 +515,8 @@ func main() {
 		return embedding, embedding1, clusters
 	}
 
-	var cs [6]float64
-	var diff [6][2]float64
+	var cs [7]float64
+	var diff [7][2]float64
 	rng := rand.New(rand.NewSource(1))
 	human := parse(string(data))
 	fake0 := parse(FakeText0)
@@ -537,12 +537,15 @@ func main() {
 		fake0b := fake0[index : index+size]
 		index = rng.Intn(len(fake1) - size)
 		fake1b := fake1[index : index+size]
+		lines := make([]*Line, len(fake0a)+len(fake1a))
+		copy(lines[:len(fake0a)], fake0a)
+		copy(lines[len(fake0a):], fake1a)
 		var wg sync.WaitGroup
 		var (
-			v        [12]Matrix[float64]
-			clusters [6][]int
+			v        [14]Matrix[float64]
+			clusters [7][]int
 		)
-		seeds := make([]int64, 6)
+		seeds := make([]int64, 7)
 		for ii := range seeds {
 			seeds[ii] = rng.Int63()
 		}
@@ -552,6 +555,7 @@ func main() {
 		wg.Go(func() { v[6], v[7], clusters[3] = vectorize(humana, humanb, seeds[3]) })
 		wg.Go(func() { v[8], v[9], clusters[4] = vectorize(fake0a, fake0b, seeds[4]) })
 		wg.Go(func() { v[10], v[11], clusters[5] = vectorize(fake1a, fake1b, seeds[5]) })
+		wg.Go(func() { v[12], v[13], clusters[6] = vectorize(humana, lines, seeds[6]) })
 		wg.Wait()
 
 		c := 0
@@ -596,5 +600,6 @@ func main() {
 	fmt.Println("human", cs[3]/float64(samples))
 	fmt.Println("fake0", cs[4]/float64(samples))
 	fmt.Println("fake1", cs[5]/float64(samples))
+	fmt.Println("human vs fake0 & fake1", cs[6]/float64(samples))
 	fmt.Println(diff)
 }
