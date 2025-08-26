@@ -482,7 +482,10 @@ func main() {
 		for i := range meta {
 			meta[i] = make([]float64, len(lines))
 		}
-		const k = 2
+		k := 2
+		if *FlagE {
+			k = 2
+		}
 		for i := 0; i < 33; i++ {
 			clusters, _, err := kmeans.Kmeans(int64(i+1), cov, k, kmeans.SquaredEuclideanDistance, -1)
 			if err != nil {
@@ -497,7 +500,7 @@ func main() {
 				}
 			}
 		}
-		clusters, _, err := kmeans.Kmeans(1, meta, 2, kmeans.SquaredEuclideanDistance, -1)
+		clusters, _, err := kmeans.Kmeans(1, meta, k, kmeans.SquaredEuclideanDistance, -1)
 		if err != nil {
 			panic(err)
 		}
@@ -556,7 +559,6 @@ func main() {
 		}
 		if *FlagE {
 			v0, v1, clusters := vectorize(humana, lines, seeds[6])
-			fmt.Println(v0.CS(v1))
 
 			a, b, c, d := 0, 0, 0, 0
 			for ii := range v0.Rows {
@@ -565,6 +567,7 @@ func main() {
 				} else {
 					b++
 				}
+				fmt.Println("h", clusters[ii], humana[ii].Word)
 			}
 			for ii := range v1.Rows {
 				if clusters[ii+v0.Rows] == 0 {
@@ -572,6 +575,7 @@ func main() {
 				} else {
 					d++
 				}
+				fmt.Println("m", clusters[ii+v0.Rows], lines[ii].Word)
 			}
 			df := a - c
 			if df < 0 {
@@ -585,6 +589,13 @@ func main() {
 			diff[0][1] += float64(df)
 			fmt.Println(a, b, c, d)
 			fmt.Println(diff[0])
+			e1 := NewMatrix(v1.Cols, len(fake0a), make([]float64, v1.Cols*len(fake0a))...)
+			copy(e1.Data, v1.Data[:v1.Cols*len(fake0a)])
+			e2 := NewMatrix(v1.Cols, len(fake1a), make([]float64, v1.Cols*len(fake1a))...)
+			copy(e2.Data, v1.Data[v1.Cols*len(fake0a):])
+			fmt.Println(v0.CS(e1))
+			fmt.Println(v0.CS(e2))
+			fmt.Println(e1.CS(e2))
 			return
 		}
 		wg.Go(func() { v[0], v[1], clusters[0] = vectorize(humana, fake0a, seeds[0]) })
