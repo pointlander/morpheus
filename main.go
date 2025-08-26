@@ -596,6 +596,12 @@ func main() {
 			fmt.Println(v0.CS(e1))
 			fmt.Println(v0.CS(e2))
 			fmt.Println(e1.CS(e2))
+			v0.Cols, v0.Rows = v0.Cols*v0.Rows, 1
+			e1.Cols, e1.Rows = e1.Cols*e1.Rows, 1
+			e2.Cols, e2.Rows = e2.Cols*e2.Rows, 1
+			fmt.Println(v0.CS(e1))
+			fmt.Println(v0.CS(e2))
+			fmt.Println(e1.CS(e2))
 			return
 		}
 		wg.Go(func() { v[0], v[1], clusters[0] = vectorize(humana, fake0a, seeds[0]) })
