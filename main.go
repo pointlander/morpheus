@@ -141,6 +141,8 @@ func Load() []Fisher {
 var (
 	// FlagIris is the iris clusterting mode
 	FlagIris = flag.Bool("iris", false, "iris clustering")
+	// FlagE is an experiment
+	FlagE = flag.Bool("e", false, "experiment")
 )
 
 // IrisMode is the iris clustering mode
@@ -524,6 +526,9 @@ func main() {
 	const samples = 16
 	for i := range samples {
 		size := rng.Intn(50) + 50
+		if *FlagE {
+			size = 150
+		}
 		fmt.Println(i)
 		index := rng.Intn(len(human) - size)
 		humana := human[index : index+size]
@@ -548,6 +553,39 @@ func main() {
 		seeds := make([]int64, 7)
 		for ii := range seeds {
 			seeds[ii] = rng.Int63()
+		}
+		if *FlagE {
+			v0, v1, clusters := vectorize(humana, lines, seeds[6])
+			fmt.Println(v0.CS(v1))
+
+			a, b, c, d := 0, 0, 0, 0
+			for ii := range v0.Rows {
+				if clusters[ii] == 0 {
+					a++
+				} else {
+					b++
+				}
+			}
+			for ii := range v1.Rows {
+				if clusters[ii+v0.Rows] == 0 {
+					c++
+				} else {
+					d++
+				}
+			}
+			df := a - c
+			if df < 0 {
+				df = -df
+			}
+			diff[0][0] += float64(df)
+			df = b - d
+			if df < 0 {
+				df = -df
+			}
+			diff[0][1] += float64(df)
+			fmt.Println(a, b, c, d)
+			fmt.Println(diff[0])
+			return
 		}
 		wg.Go(func() { v[0], v[1], clusters[0] = vectorize(humana, fake0a, seeds[0]) })
 		wg.Go(func() { v[2], v[3], clusters[1] = vectorize(humana, fake1a, seeds[1]) })
