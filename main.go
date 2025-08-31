@@ -141,6 +141,8 @@ func Load() []Fisher {
 var (
 	// FlagIris is the iris clusterting mode
 	FlagIris = flag.Bool("iris", false, "iris clustering")
+	// FlagClass classifies text
+	FlagClass = flag.Bool("class", false, "classify text")
 	// FlagE is an experiment
 	FlagE = flag.Bool("e", false, "experiment")
 )
@@ -328,14 +330,8 @@ func IrisMode() {
 	}
 }
 
-func main() {
-	flag.Parse()
-
-	if *FlagIris {
-		IrisMode()
-		return
-	}
-
+// ClassMode is the text classification mode
+func ClassMode() {
 	reader, err := zip.OpenReader("glove.2024.wikigiga.50d.zip")
 	if err != nil {
 		panic(err)
@@ -657,4 +653,18 @@ func main() {
 	fmt.Println("fake1", cs[5]/float64(samples))
 	fmt.Println("human vs fake0 & fake1", cs[6]/float64(samples))
 	fmt.Println(diff)
+}
+
+func main() {
+	flag.Parse()
+
+	if *FlagIris {
+		IrisMode()
+		return
+	}
+
+	if *FlagClass {
+		ClassMode()
+		return
+	}
 }
