@@ -768,7 +768,7 @@ func main() {
 		}
 
 		rng := rand.New(rand.NewSource(seed))
-		const iterations = 16
+		const iterations = 32
 		results := make([][]float64, iterations)
 		size := 256
 		for iteration := range iterations {
