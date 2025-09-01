@@ -855,22 +855,35 @@ func main() {
 			}
 		}
 
-		min, index := math.MaxFloat64, 0
+		sum, norm, c := 0.0, make([]float64, count), 0
 		for i := len(lines) - count; i < len(lines); i++ {
-			if stddev[i] < min {
-				min, index = stddev[i], i
+			sum += stddev[i]
+		}
+		for i := len(lines) - count; i < len(lines); i++ {
+			norm[c] = sum / stddev[i]
+			c++
+		}
+		softmax(norm)
+
+		total, selected, index := 0.0, rng.Float64(), 0
+		for i := range norm {
+			total += norm[i]
+			if selected < total {
+				index = i
+				break
 			}
 		}
 
 		next := []byte(input)
-		next = append(next, lines[index].Symbol)
+		next = append(next, lines[(len(lines)-count)+index].Symbol)
 
 		return string(next)
 	}
 
+	rng := rand.New(rand.NewSource(1))
 	state := "The old lady pulled her"
 	for range 33 {
-		state = vectorize(state, 1)
+		state = vectorize(state, rng.Int63())
 		fmt.Println(state)
 	}
 }
