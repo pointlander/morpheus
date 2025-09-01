@@ -702,4 +702,175 @@ func main() {
 		}
 	}
 	fmt.Println(len(vectors))
+
+	vectorize := func(input string, seed int64) string {
+		type Line struct {
+			Symbol byte
+			Vector []float32
+		}
+		markov := Markov{}
+		lines := make([]*Line, 0, 8)
+		for _, value := range []byte(input) {
+			line := Line{
+				Symbol: value,
+				Vector: make([]float32, 256),
+			}
+			vector := vectors[markov]
+			if vector == nil {
+				markov := markov
+				for ii := range 256 {
+					markov[0] = byte(ii)
+					for ii, value := range vectors[markov] {
+						line.Vector[ii] += float32(value)
+					}
+				}
+			} else {
+				for ii, value := range vector {
+					line.Vector[ii] = float32(value)
+				}
+			}
+			state := value
+			for ii, value := range markov {
+				markov[ii], state = state, value
+			}
+			lines = append(lines, &line)
+		}
+		count := 0
+		for ii := range 256 {
+			markov := markov
+			state := byte(ii)
+			for ii, value := range markov {
+				markov[ii], state = state, value
+			}
+			vector := vectors[markov]
+			if vector != nil {
+				count++
+				line := Line{
+					Symbol: byte(ii),
+					Vector: make([]float32, 256),
+				}
+				for ii, value := range vector {
+					line.Vector[ii] = float32(value)
+				}
+				lines = append(lines, &line)
+			}
+		}
+		fmt.Println(len(lines), count)
+
+		for i := range lines {
+			sum := float32(0.0)
+			for _, value := range lines[i].Vector {
+				sum += value
+			}
+			for ii, value := range lines[i].Vector {
+				lines[i].Vector[ii] = value / sum
+			}
+		}
+
+		rng := rand.New(rand.NewSource(seed))
+		const iterations = 16
+		results := make([][]float64, iterations)
+		size := 256
+		for iteration := range iterations {
+			a, b := NewMatrix(size, size, make([]float64, size*size)...), NewMatrix(size, size, make([]float64, size*size)...)
+			index := 0
+			for range a.Rows {
+				for range a.Cols {
+					a.Data[index] = rng.NormFloat64()
+					b.Data[index] = rng.NormFloat64()
+					index++
+				}
+			}
+			a = a.Softmax(1)
+			b = b.Softmax(1)
+			graph := pagerank.NewGraph()
+			for i := range lines {
+				for ii := range lines {
+					x, y := NewMatrix(256, 1, make([]float64, size)...), NewMatrix(size, 1, make([]float64, size)...)
+					for i, value := range lines[i].Vector {
+						if value < 0 {
+							x.Data[i] = float64(-value)
+							continue
+						}
+						x.Data[i] = float64(value)
+					}
+					for i, value := range lines[ii].Vector {
+						if value < 0 {
+							y.Data[i] = float64(-value)
+							continue
+						}
+						y.Data[i] = float64(value)
+					}
+					x = a.MulT(x)
+					y = b.MulT(y)
+					cs := x.CS(y)
+					graph.Link(uint32(i), uint32(ii), cs)
+				}
+			}
+			result := make([]float64, len(lines))
+			graph.Rank(1.0, 1e-6, func(node uint32, rank float64) {
+				result[node] = rank
+			})
+			results[iteration] = result
+		}
+		avg := make([]float64, len(lines))
+		for _, result := range results {
+			for i, value := range result {
+				avg[i] += value
+			}
+		}
+		for i, value := range avg {
+			avg[i] = value / float64(iterations)
+		}
+
+		stddev := make([]float64, len(lines))
+		for _, result := range results {
+			for i, value := range result {
+				diff := value - avg[i]
+				stddev[i] += diff * diff
+			}
+		}
+		for i, value := range stddev {
+			stddev[i] = math.Sqrt(value / float64(iterations))
+		}
+
+		cov := make([][]float64, len(lines))
+		for i := range cov {
+			cov[i] = make([]float64, len(lines))
+		}
+		for _, measures := range results {
+			for i, v := range measures {
+				for ii, vv := range measures {
+					diff1 := avg[i] - v
+					diff2 := avg[ii] - vv
+					cov[i][ii] += diff1 * diff2
+				}
+			}
+		}
+		if len(results) > 0 {
+			for i := range cov {
+				for ii := range cov[i] {
+					cov[i][ii] = cov[i][ii] / float64(len(results))
+				}
+			}
+		}
+
+		min, index := math.MaxFloat64, 0
+		for i := len(lines) - count; i < len(lines); i++ {
+			if stddev[i] < min {
+				min, index = stddev[i], i
+			}
+		}
+
+		next := []byte(input)
+		next = append(next, lines[index].Symbol)
+
+		return string(next)
+	}
+
+	state := "The old lady pulled her"
+	for range 33 {
+		state = vectorize(state, 1)
+		fmt.Println(state)
+	}
 }
