@@ -655,6 +655,9 @@ func ClassMode() {
 	fmt.Println(diff)
 }
 
+// Markov is a markov state
+type Markov [2]byte
+
 func main() {
 	flag.Parse()
 
@@ -667,4 +670,36 @@ func main() {
 		ClassMode()
 		return
 	}
+
+	file, err := Text.Open("pg74.txt.bz2")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+	breader := bzip2.NewReader(file)
+	data, err := io.ReadAll(breader)
+	if err != nil {
+		panic(err)
+	}
+
+	vectors := make(map[Markov][]uint32)
+	markov := Markov{}
+	for i, value := range data[:len(data)-6] {
+		i += 3
+		vector := vectors[markov]
+		if vector == nil {
+			vector = make([]uint32, 256)
+		}
+		vector[data[i-3]]++
+		vector[data[i-1]]++
+		vector[value]++
+		vector[data[i+1]]++
+		vector[data[i+3]]++
+		vectors[markov] = vector
+		state := value
+		for i, value := range markov {
+			markov[i], state = state, value
+		}
+	}
+	fmt.Println(len(vectors))
 }
