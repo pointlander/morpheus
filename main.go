@@ -659,8 +659,12 @@ func ClassMode() {
 	fmt.Println(diff)
 }
 
+const (
+	order = 4
+)
+
 // Markov is a markov state
-type Markov [4]byte
+type Markov [order]byte
 
 func main() {
 	flag.Parse()
@@ -757,7 +761,7 @@ func main() {
 				Vector: make([]float32, size),
 			}
 		search:
-			for i := 1; i < 5; i++ {
+			for i := 1; i < order+1; i++ {
 				find(i, markov, line.Vector)
 				for _, value := range line.Vector {
 					if value != 0 {
