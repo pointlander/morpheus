@@ -660,7 +660,7 @@ func ClassMode() {
 }
 
 // Markov is a markov state
-type Markov [2]byte
+type Markov [4]byte
 
 func main() {
 	flag.Parse()
@@ -789,6 +789,25 @@ func main() {
 			}
 		}
 
+		{
+			const n = 10000.0
+			for k := range lines[:len(lines)-count+1] {
+				for i := range 256 / 2 {
+					theta := float64(k) / math.Pow(n, 2*float64(i)/256)
+					lines[k].Vector[2*i] += float32(math.Sin(theta))
+					lines[k].Vector[2*i+1] += float32(math.Cos(theta))
+				}
+			}
+			k := len(lines) - count + 1
+			for kk := len(lines) - count + 1; kk < len(lines); kk++ {
+				for i := range 256 / 2 {
+					theta := float64(k) / math.Pow(n, 2*float64(i)/256)
+					lines[kk].Vector[2*i] += float32(math.Sin(theta))
+					lines[kk].Vector[2*i+1] += float32(math.Cos(theta))
+				}
+			}
+		}
+
 		rng := rand.New(rand.NewSource(seed))
 		const (
 			iterations = 32
@@ -906,7 +925,7 @@ func main() {
 	}
 
 	rng := rand.New(rand.NewSource(1))
-	state := "The old lady pulled her"
+	state := "What is the meaning of life?"
 	for range 33 {
 		state = vectorize(state, rng.Int63())
 		fmt.Println(state)
