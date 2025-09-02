@@ -411,6 +411,9 @@ func (m Matrix[T]) CS(n Matrix[T]) T {
 		md := m.Data[i : i+m.Cols]
 		nd := n.Data[i : i+m.Cols]
 		ab, aa, bb := dot(md, nd), dot(md, md), dot(nd, nd)
+		if aa <= 0 || bb <= 0 {
+			continue
+		}
 		sum += ab / (T(math.Sqrt(float64(aa))) * T(math.Sqrt(float64(bb))))
 		count++
 	}

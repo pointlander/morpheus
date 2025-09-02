@@ -784,6 +784,9 @@ func main() {
 			for _, value := range lines[i].Vector {
 				sum += value
 			}
+			if sum == 0 {
+				continue
+			}
 			for ii, value := range lines[i].Vector {
 				lines[i].Vector[ii] = value / sum
 			}
@@ -824,8 +827,8 @@ func main() {
 					index++
 				}
 			}
-			a = a.Softmax(1)
-			b = b.Softmax(1)
+			aa := a.Softmax(1)
+			bb := b.Softmax(1)
 			graph := pagerank.NewGraph()
 			for i := range lines {
 				x := NewMatrix(size, 1, make([]float32, size)...)
@@ -836,7 +839,7 @@ func main() {
 					}
 					x.Data[ii] = value
 				}
-				xx := a.MulT(x)
+				xx := aa.MulT(x)
 				for ii := range lines {
 					y := NewMatrix(size, 1, make([]float32, size)...)
 					for iii, value := range lines[ii].Vector {
@@ -846,7 +849,7 @@ func main() {
 						}
 						y.Data[iii] = value
 					}
-					yy := b.MulT(y)
+					yy := bb.MulT(y)
 					cs := xx.CS(yy)
 					graph.Link(uint32(i), uint32(ii), float64(cs))
 				}
