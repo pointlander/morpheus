@@ -687,6 +687,12 @@ func main() {
 		return
 	}
 
+	const (
+		iterations = 32
+		size       = 256
+		n          = 10000
+	)
+
 	vectors := make(map[Markov][]uint32)
 	load := func(book string) {
 		file, err := Text.Open(book)
@@ -705,7 +711,7 @@ func main() {
 			i += 3
 			vector := vectors[markov]
 			if vector == nil {
-				vector = make([]uint32, 256)
+				vector = make([]uint32, size)
 			}
 			vector[data[i-3]]++
 			vector[data[i-1]]++
@@ -733,7 +739,7 @@ func main() {
 			}
 			return
 		}
-		for i := range 256 {
+		for i := range size {
 			markov[limit-1] = byte(i)
 			find(limit-1, markov, vector)
 		}
@@ -748,7 +754,7 @@ func main() {
 		for _, value := range []byte(input) {
 			line := Line{
 				Symbol: value,
-				Vector: make([]float32, 256),
+				Vector: make([]float32, size),
 			}
 		search:
 			for i := 1; i < 5; i++ {
@@ -766,7 +772,7 @@ func main() {
 			lines = append(lines, &line)
 		}
 		count := 0
-		for ii := range 256 {
+		for ii := range size {
 			markov := markov
 			state := byte(ii)
 			for ii, value := range markov {
@@ -777,7 +783,7 @@ func main() {
 				count++
 				line := Line{
 					Symbol: byte(ii),
-					Vector: make([]float32, 256),
+					Vector: make([]float32, size),
 				}
 				for ii, value := range vector {
 					line.Vector[ii] = float32(value)
@@ -801,18 +807,17 @@ func main() {
 		}
 
 		{
-			const n = 10000.0
 			for k := range lines[:len(lines)-count+1] {
-				for i := range 256 / 2 {
-					theta := float64(k) / math.Pow(n, 2*float64(i)/256)
+				for i := range size / 2 {
+					theta := float64(k) / math.Pow(n, 2*float64(i)/size)
 					lines[k].Vector[2*i] += float32(math.Sin(theta))
 					lines[k].Vector[2*i+1] += float32(math.Cos(theta))
 				}
 			}
 			k := len(lines) - count + 1
 			for kk := len(lines) - count + 1; kk < len(lines); kk++ {
-				for i := range 256 / 2 {
-					theta := float64(k) / math.Pow(n, 2*float64(i)/256)
+				for i := range size / 2 {
+					theta := float64(k) / math.Pow(n, 2*float64(i)/size)
 					lines[kk].Vector[2*i] += float32(math.Sin(theta))
 					lines[kk].Vector[2*i+1] += float32(math.Cos(theta))
 				}
@@ -820,10 +825,6 @@ func main() {
 		}
 
 		rng := rand.New(rand.NewSource(seed))
-		const (
-			iterations = 32
-			size       = 256
-		)
 		results := make([][]float64, iterations)
 		for iteration := range iterations {
 			a, b := NewMatrix(size, size, make([]float32, size*size)...), NewMatrix(size, size, make([]float32, size*size)...)
