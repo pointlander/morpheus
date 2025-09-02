@@ -725,6 +725,19 @@ func main() {
 	load("books/3176.txt.utf-8.bz2")
 	fmt.Println(len(vectors))
 
+	var find func(limit int, markov Markov, vector []float32)
+	find = func(limit int, markov Markov, vector []float32) {
+		if limit == 0 {
+			for ii, value := range vectors[markov] {
+				vector[ii] += float32(value)
+			}
+			return
+		}
+		for i := range 256 {
+			markov[limit-1] = byte(i)
+			find(limit-1, markov, vector)
+		}
+	}
 	vectorize := func(input string, seed int64) string {
 		type Line struct {
 			Symbol byte
@@ -737,18 +750,13 @@ func main() {
 				Symbol: value,
 				Vector: make([]float32, 256),
 			}
-			vector := vectors[markov]
-			if vector == nil {
-				markov := markov
-				for ii := range 256 {
-					markov[0] = byte(ii)
-					for ii, value := range vectors[markov] {
-						line.Vector[ii] += float32(value)
+		search:
+			for i := 1; i < 5; i++ {
+				find(i, markov, line.Vector)
+				for _, value := range line.Vector {
+					if value != 0 {
+						break search
 					}
-				}
-			} else {
-				for ii, value := range vector {
-					line.Vector[ii] = float32(value)
 				}
 			}
 			state := value
