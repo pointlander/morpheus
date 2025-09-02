@@ -796,12 +796,12 @@ func main() {
 		)
 		results := make([][]float64, iterations)
 		for iteration := range iterations {
-			a, b := NewMatrix(size, size, make([]float64, size*size)...), NewMatrix(size, size, make([]float64, size*size)...)
+			a, b := NewMatrix(size, size, make([]float32, size*size)...), NewMatrix(size, size, make([]float32, size*size)...)
 			index := 0
 			for range a.Rows {
 				for range a.Cols {
-					a.Data[index] = rng.NormFloat64()
-					b.Data[index] = rng.NormFloat64()
+					a.Data[index] = float32(rng.NormFloat64())
+					b.Data[index] = float32(rng.NormFloat64())
 					index++
 				}
 			}
@@ -809,27 +809,27 @@ func main() {
 			b = b.Softmax(1)
 			graph := pagerank.NewGraph()
 			for i := range lines {
-				x := NewMatrix(size, 1, make([]float64, size)...)
+				x := NewMatrix(size, 1, make([]float32, size)...)
 				for ii, value := range lines[i].Vector {
 					if value < 0 {
-						x.Data[ii] = float64(-value)
+						x.Data[ii] = -value
 						continue
 					}
-					x.Data[ii] = float64(value)
+					x.Data[ii] = value
 				}
 				xx := a.MulT(x)
 				for ii := range lines {
-					y := NewMatrix(size, 1, make([]float64, size)...)
+					y := NewMatrix(size, 1, make([]float32, size)...)
 					for iii, value := range lines[ii].Vector {
 						if value < 0 {
-							y.Data[iii] = float64(-value)
+							y.Data[iii] = -value
 							continue
 						}
-						y.Data[iii] = float64(value)
+						y.Data[iii] = value
 					}
 					yy := b.MulT(y)
 					cs := xx.CS(yy)
-					graph.Link(uint32(i), uint32(ii), cs)
+					graph.Link(uint32(i), uint32(ii), float64(cs))
 				}
 			}
 			result := make([]float64, len(lines))
