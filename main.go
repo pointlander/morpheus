@@ -16,7 +16,9 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"os"
 	"regexp"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -145,6 +147,8 @@ var (
 	FlagClass = flag.Bool("class", false, "classify text")
 	// FlagE is an experiment
 	FlagE = flag.Bool("e", false, "experiment")
+	// cpuprofile profiles the program
+	cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
 )
 
 // IrisMode is the iris clustering mode
@@ -660,6 +664,18 @@ type Markov [2]byte
 
 func main() {
 	flag.Parse()
+
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			panic(err)
+		}
+		defer pprof.StopCPUProfile()
+	}
 
 	if *FlagIris {
 		IrisMode()
