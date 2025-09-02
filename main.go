@@ -29,7 +29,7 @@ import (
 //go:embed iris.zip
 var Iris embed.FS
 
-//go:embed pg74.txt.bz2
+//go:embed books/*
 var Text embed.FS
 
 const FakeText0 = `The Peculiar Case of Mr. Hiram Sneed
@@ -368,7 +368,7 @@ func ClassMode() {
 		index[words[i].Word] = &words[i]
 	}
 
-	file, err := Text.Open("pg74.txt.bz2")
+	file, err := Text.Open("books/pg74.txt.bz2")
 	if err != nil {
 		panic(err)
 	}
@@ -671,36 +671,42 @@ func main() {
 		return
 	}
 
-	file, err := Text.Open("pg74.txt.bz2")
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
-	breader := bzip2.NewReader(file)
-	data, err := io.ReadAll(breader)
-	if err != nil {
-		panic(err)
-	}
-
 	vectors := make(map[Markov][]uint32)
-	markov := Markov{}
-	for i, value := range data[:len(data)-6] {
-		i += 3
-		vector := vectors[markov]
-		if vector == nil {
-			vector = make([]uint32, 256)
+	load := func(book string) {
+		file, err := Text.Open(book)
+		if err != nil {
+			panic(err)
 		}
-		vector[data[i-3]]++
-		vector[data[i-1]]++
-		vector[value]++
-		vector[data[i+1]]++
-		vector[data[i+3]]++
-		vectors[markov] = vector
-		state := value
-		for i, value := range markov {
-			markov[i], state = state, value
+		defer file.Close()
+		breader := bzip2.NewReader(file)
+		data, err := io.ReadAll(breader)
+		if err != nil {
+			panic(err)
+		}
+
+		markov := Markov{}
+		for i, value := range data[:len(data)-6] {
+			i += 3
+			vector := vectors[markov]
+			if vector == nil {
+				vector = make([]uint32, 256)
+			}
+			vector[data[i-3]]++
+			vector[data[i-1]]++
+			vector[value]++
+			vector[data[i+1]]++
+			vector[data[i+3]]++
+			vectors[markov] = vector
+			state := value
+			for i, value := range markov {
+				markov[i], state = state, value
+			}
 		}
 	}
+	load("books/pg74.txt.bz2")
+	load("books/76.txt.utf-8.bz2")
+	load("books/1837.txt.utf-8.bz2")
+	load("books/3176.txt.utf-8.bz2")
 	fmt.Println(len(vectors))
 
 	vectorize := func(input string, seed int64) string {
@@ -768,9 +774,11 @@ func main() {
 		}
 
 		rng := rand.New(rand.NewSource(seed))
-		const iterations = 32
+		const (
+			iterations = 32
+			size       = 256
+		)
 		results := make([][]float64, iterations)
-		size := 256
 		for iteration := range iterations {
 			a, b := NewMatrix(size, size, make([]float64, size*size)...), NewMatrix(size, size, make([]float64, size*size)...)
 			index := 0
@@ -785,30 +793,31 @@ func main() {
 			b = b.Softmax(1)
 			graph := pagerank.NewGraph()
 			for i := range lines {
+				x := NewMatrix(size, 1, make([]float64, size)...)
+				for ii, value := range lines[i].Vector {
+					if value < 0 {
+						x.Data[ii] = float64(-value)
+						continue
+					}
+					x.Data[ii] = float64(value)
+				}
+				xx := a.MulT(x)
 				for ii := range lines {
-					x, y := NewMatrix(256, 1, make([]float64, size)...), NewMatrix(size, 1, make([]float64, size)...)
-					for i, value := range lines[i].Vector {
+					y := NewMatrix(size, 1, make([]float64, size)...)
+					for iii, value := range lines[ii].Vector {
 						if value < 0 {
-							x.Data[i] = float64(-value)
+							y.Data[iii] = float64(-value)
 							continue
 						}
-						x.Data[i] = float64(value)
+						y.Data[iii] = float64(value)
 					}
-					for i, value := range lines[ii].Vector {
-						if value < 0 {
-							y.Data[i] = float64(-value)
-							continue
-						}
-						y.Data[i] = float64(value)
-					}
-					x = a.MulT(x)
-					y = b.MulT(y)
-					cs := x.CS(y)
+					yy := b.MulT(y)
+					cs := xx.CS(yy)
 					graph.Link(uint32(i), uint32(ii), cs)
 				}
 			}
 			result := make([]float64, len(lines))
-			graph.Rank(1.0, 1e-6, func(node uint32, rank float64) {
+			graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
 				result[node] = rank
 			})
 			results[iteration] = result
@@ -834,7 +843,7 @@ func main() {
 			stddev[i] = math.Sqrt(value / float64(iterations))
 		}
 
-		cov := make([][]float64, len(lines))
+		/*cov := make([][]float64, len(lines))
 		for i := range cov {
 			cov[i] = make([]float64, len(lines))
 		}
@@ -853,7 +862,7 @@ func main() {
 					cov[i][ii] = cov[i][ii] / float64(len(results))
 				}
 			}
-		}
+		}*/
 
 		sum, norm, c := 0.0, make([]float64, count), 0
 		for i := len(lines) - count; i < len(lines); i++ {
