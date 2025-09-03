@@ -730,8 +730,12 @@ func main() {
 		}
 	}
 	load("books/pg74.txt.bz2")
+	load("books/10.txt.utf-8.bz2")
 	load("books/76.txt.utf-8.bz2")
+	load("books/84.txt.utf-8.bz2")
+	load("books/100.txt.utf-8.bz2")
 	load("books/1837.txt.utf-8.bz2")
+	load("books/2701.txt.utf-8.bz2")
 	load("books/3176.txt.utf-8.bz2")
 	fmt.Println(len(vectors))
 
@@ -953,7 +957,7 @@ func main() {
 		t := Trace{
 			Trace: input,
 		}
-		for range 33 {
+		for range 8 {
 			trace := vectorize(t.Trace, rng.Int63())
 			t.Trace = trace.Trace
 			t.Value += trace.Value
@@ -963,20 +967,24 @@ func main() {
 
 	rng := rand.New(rand.NewSource(1))
 	state := "What is the meaning of life?"
-	traces := make([]Trace, 0, 8)
-	for range 16 {
-		go trace(state, rng.Int63())
+	for range 4 {
+		traces := make([]Trace, 0, 8)
+		for range 8 {
+			go trace(state, rng.Int63())
+		}
+		for range 8 {
+			trace := <-done
+			traces = append(traces, trace)
+		}
+		sort.Slice(traces, func(i, j int) bool {
+			return traces[i].Value > traces[j].Value
+		})
+		for _, t := range traces {
+			fmt.Println(t.Value)
+			fmt.Println(t.Trace)
+			fmt.Println("-----------------------")
+		}
+		state = traces[0].Trace
 	}
-	for range 16 {
-		trace := <-done
-		traces = append(traces, trace)
-	}
-	sort.Slice(traces, func(i, j int) bool {
-		return traces[i].Value > traces[j].Value
-	})
-	for _, t := range traces {
-		fmt.Println(t.Value)
-		fmt.Println(t.Trace)
-		fmt.Println("-----------------------")
-	}
+	fmt.Println(state)
 }
