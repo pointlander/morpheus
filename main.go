@@ -748,7 +748,11 @@ func main() {
 			find(limit-1, markov, vector)
 		}
 	}
-	vectorize := func(input string, seed int64) string {
+	type Trace struct {
+		Trace string
+		Value float64
+	}
+	vectorize := func(input string, seed int64) Trace {
 		type Line struct {
 			Symbol byte
 			Vector []float32
@@ -795,7 +799,7 @@ func main() {
 				lines = append(lines, &line)
 			}
 		}
-		fmt.Println(len(lines), count)
+		//fmt.Println(len(lines), count)
 
 		for i := range lines {
 			sum := float32(0.0)
@@ -937,13 +941,42 @@ func main() {
 		next := []byte(input)
 		next = append(next, lines[(len(lines)-count)+index].Symbol)
 
-		return string(next)
+		return Trace{
+			Trace: string(next),
+			Value: norm[index],
+		}
+	}
+
+	done := make(chan Trace, 8)
+	trace := func(input string, seed int64) {
+		rng := rand.New(rand.NewSource(seed))
+		t := Trace{
+			Trace: input,
+		}
+		for range 33 {
+			trace := vectorize(t.Trace, rng.Int63())
+			t.Trace = trace.Trace
+			t.Value += trace.Value
+		}
+		done <- t
 	}
 
 	rng := rand.New(rand.NewSource(1))
 	state := "What is the meaning of life?"
-	for range 33 {
-		state = vectorize(state, rng.Int63())
-		fmt.Println(state)
+	traces := make([]Trace, 0, 8)
+	for range 16 {
+		go trace(state, rng.Int63())
+	}
+	for range 16 {
+		trace := <-done
+		traces = append(traces, trace)
+	}
+	sort.Slice(traces, func(i, j int) bool {
+		return traces[i].Value > traces[j].Value
+	})
+	for _, t := range traces {
+		fmt.Println(t.Value)
+		fmt.Println(t.Trace)
+		fmt.Println("-----------------------")
 	}
 }
