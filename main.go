@@ -969,10 +969,10 @@ func main() {
 	state := "What is the meaning of life?"
 	for range 4 {
 		traces := make([]Trace, 0, 8)
-		for range 8 {
+		for range 64 {
 			go trace(state, rng.Int63())
 		}
-		for range 8 {
+		for range 64 {
 			trace := <-done
 			traces = append(traces, trace)
 		}
@@ -986,5 +986,6 @@ func main() {
 		}
 		state = traces[0].Trace
 	}
+	fmt.Println()
 	fmt.Println(state)
 }
