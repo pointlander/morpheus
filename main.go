@@ -18,6 +18,7 @@ import (
 	"math/rand"
 	"os"
 	"regexp"
+	"runtime"
 	"runtime/pprof"
 	"sort"
 	"strconv"
@@ -695,6 +696,7 @@ func main() {
 		iterations = 32
 		size       = 256
 		n          = 10000
+		samples    = 128
 	)
 
 	vectors := make(map[Markov][]uint32)
@@ -968,13 +970,23 @@ func main() {
 	rng := rand.New(rand.NewSource(1))
 	state := "What is the meaning of life?"
 	for range 4 {
-		traces := make([]Trace, 0, 8)
-		for range 64 {
+		traces := make([]Trace, 0, samples)
+		index, flight, cpus := 0, 0, runtime.NumCPU()
+		for index < samples && flight < cpus {
 			go trace(state, rng.Int63())
+			index++
+			flight++
 		}
-		for range 64 {
-			trace := <-done
-			traces = append(traces, trace)
+		for index < samples {
+			traces = append(traces, <-done)
+			flight--
+
+			go trace(state, rng.Int63())
+			index++
+			flight++
+		}
+		for range flight {
+			traces = append(traces, <-done)
 		}
 		sort.Slice(traces, func(i, j int) bool {
 			return traces[i].Value > traces[j].Value
