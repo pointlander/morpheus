@@ -696,7 +696,10 @@ func main() {
 	)
 
 	type Markov [order]byte
-	vectors := make(map[Markov][]uint32)
+	var vectors [order]map[Markov][]uint32
+	for i := range vectors {
+		vectors[i] = make(map[Markov][]uint32)
+	}
 	load := func(book string) {
 		file, err := Text.Open(book)
 		if err != nil {
@@ -709,22 +712,24 @@ func main() {
 			panic(err)
 		}
 
-		markov := Markov{}
+		markov := [order]Markov{}
 		for i, value := range data[:len(data)-6] {
 			i += 3
-			vector := vectors[markov]
-			if vector == nil {
-				vector = make([]uint32, size)
-			}
-			vector[data[i-3]]++
-			vector[data[i-1]]++
-			vector[value]++
-			vector[data[i+1]]++
-			vector[data[i+3]]++
-			vectors[markov] = vector
-			state := value
-			for i, value := range markov {
-				markov[i], state = state, value
+			for ii := range markov {
+				vector := vectors[ii][markov[ii]]
+				if vector == nil {
+					vector = make([]uint32, size)
+				}
+				vector[data[i-3]]++
+				vector[data[i-1]]++
+				vector[value]++
+				vector[data[i+1]]++
+				vector[data[i+3]]++
+				vectors[ii][markov[ii]] = vector
+				state := value
+				for iii, value := range markov[ii][:ii+1] {
+					markov[ii][iii], state = state, value
+				}
 			}
 		}
 	}
@@ -736,32 +741,10 @@ func main() {
 	load("books/1837.txt.utf-8.bz2")
 	load("books/2701.txt.utf-8.bz2")
 	load("books/3176.txt.utf-8.bz2")
-	fmt.Println(len(vectors))
+	for i := range vectors {
+		fmt.Println(i, len(vectors[i]))
+	}
 
-	var find func(limit int, markov Markov, vector []float32)
-	find = func(limit int, markov Markov, vector []float32) {
-		if limit == 0 {
-			for ii, value := range vectors[markov] {
-				vector[ii] += float32(value)
-			}
-			return
-		}
-		for i := range size {
-			markov[limit-1] = byte(i)
-			find(limit-1, markov, vector)
-		}
-	}
-	search := func(markov Markov, vector []float32) bool {
-		for i := 1; i < order+1; i++ {
-			find(i, markov, vector)
-			for _, value := range vector {
-				if value != 0 {
-					return true
-				}
-			}
-		}
-		return false
-	}
 	type Trace struct {
 		Trace string
 		Value float64
@@ -771,39 +754,56 @@ func main() {
 			Symbol byte
 			Vector []float32
 		}
-		markov := Markov{}
+		markov := [order]Markov{}
 		lines := make([]*Line, 0, 8)
 		for _, value := range []byte(input) {
 			line := Line{
 				Symbol: value,
 				Vector: make([]float32, size),
 			}
-			if search(markov, line.Vector) {
-				lines = append(lines, &line)
+			for i := range markov {
+				i = order - 1 - i
+				vector := vectors[i][markov[i]]
+				if vector != nil {
+					for ii := range vector {
+						line.Vector[ii] = float32(vector[ii])
+					}
+					lines = append(lines, &line)
+				}
+				break
 			}
-			state := value
-			for ii, value := range markov {
-				markov[ii], state = state, value
+			for i := range markov {
+				state := value
+				for ii, value := range markov[i][:i+1] {
+					markov[i][ii], state = state, value
+				}
 			}
+
 		}
 		count := 0
-		for ii := range size {
-			markov := markov
-			state := byte(ii)
-			for ii, value := range markov {
-				markov[ii], state = state, value
+		for i := range markov {
+			i = order - 1 - i
+			for ii := range size {
+				markov := markov
+				state := byte(ii)
+				for iv, value := range markov[i][:i+1] {
+					markov[i][iv], state = state, value
+				}
+				vector := vectors[i][markov[i]]
+				if vector != nil {
+					count++
+					line := Line{
+						Symbol: byte(ii),
+						Vector: make([]float32, size),
+					}
+					for iii, value := range vector {
+						line.Vector[iii] = float32(value)
+					}
+					lines = append(lines, &line)
+				}
 			}
-			vector := vectors[markov]
-			if vector != nil {
-				count++
-				line := Line{
-					Symbol: byte(ii),
-					Vector: make([]float32, size),
-				}
-				for ii, value := range vector {
-					line.Vector[ii] = float32(value)
-				}
-				lines = append(lines, &line)
+			if count > 0 {
+				break
 			}
 		}
 		//fmt.Println(len(lines), count)
