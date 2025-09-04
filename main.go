@@ -660,13 +660,6 @@ func ClassMode() {
 	fmt.Println(diff)
 }
 
-const (
-	order = 4
-)
-
-// Markov is a markov state
-type Markov [order]byte
-
 func main() {
 	flag.Parse()
 
@@ -697,8 +690,12 @@ func main() {
 		size       = 256
 		n          = 10000
 		samples    = 128
+		order      = 4
+		length     = 16
+		segments   = 4
 	)
 
+	type Markov [order]byte
 	vectors := make(map[Markov][]uint32)
 	load := func(book string) {
 		file, err := Text.Open(book)
@@ -754,6 +751,17 @@ func main() {
 			find(limit-1, markov, vector)
 		}
 	}
+	search := func(markov Markov, vector []float32) bool {
+		for i := 1; i < order+1; i++ {
+			find(i, markov, vector)
+			for _, value := range vector {
+				if value != 0 {
+					return true
+				}
+			}
+		}
+		return false
+	}
 	type Trace struct {
 		Trace string
 		Value float64
@@ -770,20 +778,13 @@ func main() {
 				Symbol: value,
 				Vector: make([]float32, size),
 			}
-		search:
-			for i := 1; i < order+1; i++ {
-				find(i, markov, line.Vector)
-				for _, value := range line.Vector {
-					if value != 0 {
-						break search
-					}
-				}
+			if search(markov, line.Vector) {
+				lines = append(lines, &line)
 			}
 			state := value
 			for ii, value := range markov {
 				markov[ii], state = state, value
 			}
-			lines = append(lines, &line)
 		}
 		count := 0
 		for ii := range size {
@@ -959,7 +960,7 @@ func main() {
 		t := Trace{
 			Trace: input,
 		}
-		for range 8 {
+		for range length {
 			trace := vectorize(t.Trace, rng.Int63())
 			t.Trace = trace.Trace
 			t.Value += trace.Value
@@ -969,7 +970,7 @@ func main() {
 
 	rng := rand.New(rand.NewSource(1))
 	state := "What is the meaning of life?"
-	for range 4 {
+	for range segments {
 		traces := make([]Trace, 0, samples)
 		index, flight, cpus := 0, 0, runtime.NumCPU()
 		for index < samples && flight < cpus {
