@@ -822,15 +822,15 @@ func main() {
 		}
 
 		{
-			for k := range lines[:len(lines)-count+1] {
+			for k := range lines[:len(lines)-count] {
 				for i := range size / 2 {
 					theta := float64(k) / math.Pow(n, 2*float64(i)/size)
 					lines[k].Vector[2*i] += float32(math.Sin(theta))
 					lines[k].Vector[2*i+1] += float32(math.Cos(theta))
 				}
 			}
-			k := len(lines) - count + 1
-			for kk := len(lines) - count + 1; kk < len(lines); kk++ {
+			k := len(lines) - count
+			for kk := len(lines) - count; kk < len(lines); kk++ {
 				for i := range size / 2 {
 					theta := float64(k) / math.Pow(n, 2*float64(i)/size)
 					lines[kk].Vector[2*i] += float32(math.Sin(theta))
