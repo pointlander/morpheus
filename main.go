@@ -948,9 +948,15 @@ func main() {
 		next := []byte(input)
 		next = append(next, lines[(len(lines)-count)+index].Symbol)
 
+		sum = 0.0
+		for i := 0; i < len(lines)-count; i++ {
+			sum += avg[i]
+		}
+		sum += avg[(len(lines)-count)+index]
+
 		return Trace{
 			Trace: string(next),
-			Value: avg[(len(lines)-count)+index],
+			Value: avg[(len(lines)-count)+index] / sum,
 		}
 	}
 
