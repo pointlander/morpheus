@@ -689,7 +689,7 @@ func main() {
 		iterations = 32
 		size       = 256
 		n          = 10000
-		samples    = 128
+		samples    = 8 //128
 		order      = 4
 		length     = 16
 		segments   = 4
@@ -842,7 +842,8 @@ func main() {
 		rng := rand.New(rand.NewSource(seed))
 		results := make([][]float64, iterations)
 		for iteration := range iterations {
-			a, b := NewMatrix(size, size, make([]float32, size*size)...), NewMatrix(size, size, make([]float32, size*size)...)
+			width := 2 * size
+			a, b := NewMatrix(width, width/8, make([]float32, width*width/8)...), NewMatrix(width, width/8, make([]float32, width*width/8)...)
 			index := 0
 			for range a.Rows {
 				for range a.Cols {
@@ -855,20 +856,20 @@ func main() {
 			bb := b.Softmax(1)
 			graph := pagerank.NewGraph()
 			for i := range lines {
-				x := NewMatrix(size, 1, make([]float32, size)...)
+				x := NewMatrix(width, 1, make([]float32, width)...)
 				for ii, value := range lines[i].Vector {
 					if value < 0 {
-						x.Data[ii] = -value
+						x.Data[size+ii] = -value
 						continue
 					}
 					x.Data[ii] = value
 				}
 				xx := aa.MulT(x)
 				for ii := range lines {
-					y := NewMatrix(size, 1, make([]float32, size)...)
+					y := NewMatrix(width, 1, make([]float32, width)...)
 					for iii, value := range lines[ii].Vector {
 						if value < 0 {
-							y.Data[iii] = -value
+							y.Data[size+iii] = -value
 							continue
 						}
 						y.Data[iii] = value
