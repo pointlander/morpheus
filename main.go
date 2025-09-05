@@ -689,7 +689,7 @@ func main() {
 		iterations = 32
 		size       = 256
 		n          = 10000
-		samples    = 8 //128
+		samples    = 128
 		order      = 4
 		length     = 16
 		segments   = 4
