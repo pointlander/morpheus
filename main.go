@@ -672,14 +672,16 @@ type Vector[T any] struct {
 type Config struct {
 	Iterations int
 	Size       int
+	Divider    int
 }
 
-func Process[T any](seed int64, config Config, vectors []*Vector[T]) [][]float64 {
+func Morpheus[T any](seed int64, config Config, vectors []*Vector[T]) [][]float64 {
 	rng := rand.New(rand.NewSource(seed))
 	results := make([][]float64, config.Iterations)
+	width := 2 * config.Size
 	for iteration := range config.Iterations {
-		width := 2 * config.Size
-		a, b := NewMatrix(width, width/8, make([]float32, width*width/8)...), NewMatrix(width, width/8, make([]float32, width*width/8)...)
+		a, b := NewMatrix(width, width/config.Divider, make([]float32, width*width/config.Divider)...),
+			NewMatrix(width, width/config.Divider, make([]float32, width*width/config.Divider)...)
 		index := 0
 		for range a.Rows {
 			for range a.Cols {
@@ -949,8 +951,9 @@ func main() {
 		config := Config{
 			Iterations: iterations,
 			Size:       size,
+			Divider:    8,
 		}
-		Process(seed, config, lines)
+		Morpheus(seed, config, lines)
 
 		sum, norm, c := 0.0, make([]float64, count), 0
 		for i := len(lines) - count; i < len(lines); i++ {
