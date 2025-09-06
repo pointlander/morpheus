@@ -73,8 +73,6 @@ type Fisher struct {
 	Label    string
 	Cluster  int
 	Index    int
-	Rank     float64
-	AE       int
 }
 
 // Labels maps iris labels to ints
@@ -154,108 +152,50 @@ var (
 
 // IrisMode is the iris clustering mode
 func IrisMode() {
-	iris := Load()
 	rng := rand.New(rand.NewSource(1))
-	const iterations = 512
-	results := make([][]float64, iterations)
-	for iteration := range iterations {
-		a, b := NewMatrix(4, 4, make([]float64, 4*4)...), NewMatrix(4, 4, make([]float64, 4*4)...)
-		index := 0
-		for range a.Rows {
-			for range a.Cols {
-				a.Data[index] = rng.NormFloat64()
-				b.Data[index] = rng.NormFloat64()
-				index++
+	vectors := make([]*Vector[Fisher], 150)
+	{
+		iris := Load()
+		for i := range vectors {
+			vector := Vector[Fisher]{}
+			vector.Meta = iris[i]
+			for _, value := range iris[i].Measures {
+				vector.Vector = append(vector.Vector, float32(value))
 			}
-		}
-		a = a.Softmax(1)
-		b = b.Softmax(1)
-		graph := pagerank.NewGraph()
-		for i := range iris {
-			for ii := range iris {
-				x, y := NewMatrix(4, 1, make([]float64, 4)...), NewMatrix(4, 1, make([]float64, 4)...)
-				for i, value := range iris[i].Measures {
-					x.Data[i] = value
-				}
-				for i, value := range iris[ii].Measures {
-					y.Data[i] = value
-				}
-				x = a.MulT(x)
-				y = b.MulT(y)
-				cs := x.CS(y)
-				graph.Link(uint32(i), uint32(ii), cs)
-			}
-		}
-		result := make([]float64, len(iris))
-		graph.Rank(1.0, 1e-6, func(node uint32, rank float64) {
-			result[node] = rank
-		})
-		results[iteration] = result
-	}
-	avg := make([]float64, len(iris))
-	for _, result := range results {
-		for i, value := range result {
-			avg[i] += value
+			vectors[i] = &vector
 		}
 	}
-	for i, value := range avg {
-		avg[i] = value / float64(iterations)
+	config := Config{
+		Iterations: 512,
+		Size:       4,
+		Divider:    1,
 	}
-	stddev := make([]float64, len(iris))
-	for _, result := range results {
-		for i, value := range result {
-			diff := value - avg[i]
-			stddev[i] += diff * diff
-		}
-	}
-	for i, value := range stddev {
-		stddev[i] = math.Sqrt(value / float64(iterations))
-	}
-	for i := range iris {
-		iris[i].Rank = stddev[i]
-	}
-	sort.Slice(iris, func(i, j int) bool {
-		return iris[i].Rank < iris[j].Rank
+	cov := Morpheus(rng.Int63(), config, vectors)
+
+	sort.Slice(vectors, func(i, j int) bool {
+		return vectors[i].Stddev < vectors[j].Stddev
 	})
-	for i := range stddev {
-		fmt.Println(iris[i].Label)
+	for i := range vectors {
+		fmt.Println(vectors[i].Meta.Label)
 	}
 
-	cov := make([][]float64, len(iris))
-	for i := range cov {
-		cov[i] = make([]float64, len(iris))
-	}
-	for _, measures := range results {
-		for i, v := range measures {
-			for ii, vv := range measures {
-				diff1 := avg[i] - v
-				diff2 := avg[ii] - vv
-				cov[i][ii] += diff1 * diff2
-			}
-		}
-	}
-	if len(results) > 0 {
-		for i := range cov {
-			for ii := range cov[i] {
-				cov[i][ii] = cov[i][ii] / float64(len(results))
-			}
-		}
-	}
 	fmt.Println("K=")
 	for i := range cov {
 		fmt.Println(cov[i])
 	}
 	fmt.Println("u=")
-	fmt.Println(avg)
+	for i := range vectors {
+		fmt.Printf("%v ", vectors[i].Avg)
+	}
 	fmt.Println()
 
-	sort.Slice(iris, func(i, j int) bool {
-		return iris[i].Index < iris[j].Index
+	sort.Slice(vectors, func(i, j int) bool {
+		return vectors[i].Meta.Index < vectors[j].Meta.Index
 	})
 
-	meta := make([][]float64, len(iris))
+	meta := make([][]float64, len(vectors))
 	for i := range meta {
-		meta[i] = make([]float64, len(iris))
+		meta[i] = make([]float64, len(vectors))
 	}
 	const k = 3
 	for i := 0; i < 33; i++ {
@@ -277,19 +217,19 @@ func IrisMode() {
 		panic(err)
 	}
 	for i, value := range clusters {
-		iris[i].Cluster = value
+		vectors[i].Meta.Cluster = value
 	}
-	sort.Slice(iris, func(i, j int) bool {
-		return iris[i].Cluster < iris[j].Cluster
+	sort.Slice(vectors, func(i, j int) bool {
+		return vectors[i].Meta.Cluster < vectors[j].Meta.Cluster
 	})
-	for i := range stddev {
-		fmt.Println(iris[i].Cluster, iris[i].Label)
+	for i := range vectors {
+		fmt.Println(vectors[i].Meta.Cluster, vectors[i].Meta.Label)
 	}
 	a := make(map[string][3]int)
-	for i := range iris {
-		histogram := a[iris[i].Label]
-		histogram[iris[i].Cluster]++
-		a[iris[i].Label] = histogram
+	for i := range vectors {
+		histogram := a[vectors[i].Meta.Label]
+		histogram[vectors[i].Meta.Cluster]++
+		a[vectors[i].Meta.Label] = histogram
 	}
 	for k, v := range a {
 		fmt.Println(k, v)
@@ -297,7 +237,7 @@ func IrisMode() {
 
 	var auto [3]*AutoEncoder
 	for i := range auto {
-		auto[i] = NewAutoEncoder(len(iris), 1)
+		auto[i] = NewAutoEncoder(len(vectors), 1)
 	}
 	for i := range cov {
 		sum := 0.0
@@ -349,15 +289,17 @@ func ClassMode() {
 	defer input.Close()
 	scanner := bufio.NewScanner(input)
 	type Line struct {
-		Word   string
-		Vector [50]float32
+		Word string
 	}
-	words := make([]Line, 0, 8)
+	words := make([]*Vector[Line], 0, 8)
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.Split(line, " ")
-		word := Line{
-			Word: strings.TrimSpace(parts[0]),
+		word := Vector[Line]{
+			Meta: Line{
+				Word: strings.TrimSpace(parts[0]),
+			},
+			Vector: make([]float32, 50),
 		}
 		for i, part := range parts[1:] {
 			value, err := strconv.ParseFloat(strings.TrimSpace(part), 32)
@@ -366,11 +308,11 @@ func ClassMode() {
 			}
 			word.Vector[i] = float32(value)
 		}
-		words = append(words, word)
+		words = append(words, &word)
 	}
-	index := make(map[string]*Line, len(words))
+	index := make(map[string]*Vector[Line], len(words))
 	for i := range words {
-		index[words[i].Word] = &words[i]
+		index[words[i].Meta.Word] = words[i]
 	}
 
 	file, err := Text.Open("books/pg74.txt.bz2")
@@ -384,11 +326,11 @@ func ClassMode() {
 		panic(err)
 	}
 
-	parse := func(text string) []*Line {
+	parse := func(text string) []*Vector[Line] {
 		reg := regexp.MustCompile(`\s+`)
 		parts := reg.Split(text, -1)
 		reg = regexp.MustCompile(`[\p{P}]+`)
-		lines := make([]*Line, 0, 8)
+		lines := make([]*Vector[Line], 0, 8)
 		for _, part := range parts {
 			part = reg.ReplaceAllString(part, "")
 			word := index[strings.ToLower(part)]
@@ -399,85 +341,17 @@ func ClassMode() {
 		return lines
 	}
 
-	vectorize := func(linesA, linesB []*Line, seed int64) (Matrix[float64], Matrix[float64], []int) {
-		lines := make([]*Line, len(linesA)+len(linesB))
+	vectorize := func(linesA, linesB []*Vector[Line], seed int64) (Matrix[float64], Matrix[float64], []int) {
+		lines := make([]*Vector[Line], len(linesA)+len(linesB))
 		copy(lines[:len(linesA)], linesA)
 		copy(lines[len(linesA):], linesB)
-		rng := rand.New(rand.NewSource(seed))
-		const iterations = 16
-		results := make([][]float64, iterations)
-		for iteration := range iterations {
-			a, b := NewMatrix(100, 100, make([]float64, 100*100)...), NewMatrix(100, 100, make([]float64, 100*100)...)
-			index := 0
-			for range a.Rows {
-				for range a.Cols {
-					a.Data[index] = rng.NormFloat64()
-					b.Data[index] = rng.NormFloat64()
-					index++
-				}
-			}
-			a = a.Softmax(1)
-			b = b.Softmax(1)
-			graph := pagerank.NewGraph()
-			for i := range lines {
-				for ii := range lines {
-					x, y := NewMatrix(100, 1, make([]float64, 100)...), NewMatrix(100, 1, make([]float64, 100)...)
-					for i, value := range lines[i].Vector {
-						if value < 0 {
-							x.Data[50+i] = float64(-value)
-							continue
-						}
-						x.Data[i] = float64(value)
-					}
-					for i, value := range lines[ii].Vector {
-						if value < 0 {
-							y.Data[50+i] = float64(-value)
-							continue
-						}
-						y.Data[i] = float64(value)
-					}
-					x = a.MulT(x)
-					y = b.MulT(y)
-					cs := x.CS(y)
-					graph.Link(uint32(i), uint32(ii), cs)
-				}
-			}
-			result := make([]float64, len(lines))
-			graph.Rank(1.0, 1e-6, func(node uint32, rank float64) {
-				result[node] = rank
-			})
-			results[iteration] = result
-		}
-		avg := make([]float64, len(lines))
-		for _, result := range results {
-			for i, value := range result {
-				avg[i] += value
-			}
-		}
-		for i, value := range avg {
-			avg[i] = value / float64(iterations)
-		}
 
-		cov := make([][]float64, len(lines))
-		for i := range cov {
-			cov[i] = make([]float64, len(lines))
+		config := Config{
+			Iterations: 16,
+			Size:       100,
+			Divider:    1,
 		}
-		for _, measures := range results {
-			for i, v := range measures {
-				for ii, vv := range measures {
-					diff1 := avg[i] - v
-					diff2 := avg[ii] - vv
-					cov[i][ii] += diff1 * diff2
-				}
-			}
-		}
-		if len(results) > 0 {
-			for i := range cov {
-				for ii := range cov[i] {
-					cov[i][ii] = cov[i][ii] / float64(len(results))
-				}
-			}
-		}
+		cov := Morpheus(seed, config, lines)
 
 		meta := make([][]float64, len(lines))
 		for i := range meta {
@@ -546,7 +420,7 @@ func ClassMode() {
 		fake0b := fake0[index : index+size]
 		index = rng.Intn(len(fake1) - size)
 		fake1b := fake1[index : index+size]
-		lines := make([]*Line, len(fake0a)+len(fake1a))
+		lines := make([]*Vector[Line], len(fake0a)+len(fake1a))
 		copy(lines[:len(fake0a)], fake0a)
 		copy(lines[len(fake0a):], fake1a)
 		var wg sync.WaitGroup
@@ -568,7 +442,7 @@ func ClassMode() {
 				} else {
 					b++
 				}
-				fmt.Println("h", clusters[ii], humana[ii].Word)
+				fmt.Println("h", clusters[ii], humana[ii].Meta.Word)
 			}
 			for ii := range v1.Rows {
 				if clusters[ii+v0.Rows] == 0 {
@@ -576,7 +450,7 @@ func ClassMode() {
 				} else {
 					d++
 				}
-				fmt.Println("m", clusters[ii+v0.Rows], lines[ii].Word)
+				fmt.Println("m", clusters[ii+v0.Rows], lines[ii].Meta.Word)
 			}
 			df := a - c
 			if df < 0 {
