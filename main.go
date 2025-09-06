@@ -660,6 +660,109 @@ func ClassMode() {
 	fmt.Println(diff)
 }
 
+// Vector is a vector
+type Vector[T any] struct {
+	Meta   T
+	Vector []float32
+	Avg    float64
+	Stddev float64
+}
+
+// Config is the configuration for the morpheus algorithm
+type Config struct {
+	Iterations int
+	Size       int
+}
+
+func Process[T any](seed int64, config Config, vectors []*Vector[T]) [][]float64 {
+	rng := rand.New(rand.NewSource(seed))
+	results := make([][]float64, config.Iterations)
+	for iteration := range config.Iterations {
+		width := 2 * config.Size
+		a, b := NewMatrix(width, width/8, make([]float32, width*width/8)...), NewMatrix(width, width/8, make([]float32, width*width/8)...)
+		index := 0
+		for range a.Rows {
+			for range a.Cols {
+				a.Data[index] = float32(rng.NormFloat64())
+				b.Data[index] = float32(rng.NormFloat64())
+				index++
+			}
+		}
+		aa := a.Softmax(1)
+		bb := b.Softmax(1)
+		graph := pagerank.NewGraph()
+		for i := range vectors {
+			x := NewMatrix(width, 1, make([]float32, width)...)
+			for ii, value := range vectors[i].Vector {
+				if value < 0 {
+					x.Data[config.Size+ii] = -value
+					continue
+				}
+				x.Data[ii] = value
+			}
+			xx := aa.MulT(x)
+			for ii := range vectors {
+				y := NewMatrix(width, 1, make([]float32, width)...)
+				for iii, value := range vectors[ii].Vector {
+					if value < 0 {
+						y.Data[config.Size+iii] = -value
+						continue
+					}
+					y.Data[iii] = value
+				}
+				yy := bb.MulT(y)
+				cs := xx.CS(yy)
+				graph.Link(uint32(i), uint32(ii), float64(cs))
+			}
+		}
+		result := make([]float64, len(vectors))
+		graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
+			result[node] = rank
+		})
+		results[iteration] = result
+	}
+	for _, result := range results {
+		for i, value := range result {
+			vectors[i].Avg += value
+		}
+	}
+	for i, value := range vectors {
+		vectors[i].Avg = value.Avg / float64(config.Iterations)
+	}
+
+	for _, result := range results {
+		for i, value := range result {
+			diff := value - vectors[i].Avg
+			vectors[i].Stddev += diff * diff
+		}
+	}
+	for i, value := range vectors {
+		vectors[i].Stddev = math.Sqrt(value.Stddev / float64(config.Iterations))
+	}
+
+	cov := make([][]float64, len(vectors))
+	for i := range cov {
+		cov[i] = make([]float64, len(vectors))
+	}
+	for _, measures := range results {
+		for i, v := range measures {
+			for ii, vv := range measures {
+				diff1 := vectors[i].Avg - v
+				diff2 := vectors[ii].Avg - vv
+				cov[i][ii] += diff1 * diff2
+			}
+		}
+	}
+	if len(results) > 0 {
+		for i := range cov {
+			for ii := range cov[i] {
+				cov[i][ii] = cov[i][ii] / float64(len(results))
+			}
+		}
+	}
+	return cov
+}
+
 func main() {
 	flag.Parse()
 
@@ -750,15 +853,17 @@ func main() {
 		Value float64
 	}
 	vectorize := func(input string, seed int64) Trace {
+		rng := rand.New(rand.NewSource(seed))
 		type Line struct {
 			Symbol byte
-			Vector []float32
 		}
 		markov := [order]Markov{}
-		lines := make([]*Line, 0, 8)
+		lines := make([]*Vector[Line], 0, 8)
 		for _, value := range []byte(input) {
-			line := Line{
-				Symbol: value,
+			line := Vector[Line]{
+				Meta: Line{
+					Symbol: value,
+				},
 				Vector: make([]float32, size),
 			}
 			for i := range markov {
@@ -792,8 +897,10 @@ func main() {
 				vector := vectors[i][markov[i]]
 				if vector != nil {
 					count++
-					line := Line{
-						Symbol: byte(ii),
+					line := Vector[Line]{
+						Meta: Line{
+							Symbol: byte(ii),
+						},
 						Vector: make([]float32, size),
 					}
 					for iii, value := range vector {
@@ -839,100 +946,18 @@ func main() {
 			}
 		}
 
-		rng := rand.New(rand.NewSource(seed))
-		results := make([][]float64, iterations)
-		for iteration := range iterations {
-			width := 2 * size
-			a, b := NewMatrix(width, width/8, make([]float32, width*width/8)...), NewMatrix(width, width/8, make([]float32, width*width/8)...)
-			index := 0
-			for range a.Rows {
-				for range a.Cols {
-					a.Data[index] = float32(rng.NormFloat64())
-					b.Data[index] = float32(rng.NormFloat64())
-					index++
-				}
-			}
-			aa := a.Softmax(1)
-			bb := b.Softmax(1)
-			graph := pagerank.NewGraph()
-			for i := range lines {
-				x := NewMatrix(width, 1, make([]float32, width)...)
-				for ii, value := range lines[i].Vector {
-					if value < 0 {
-						x.Data[size+ii] = -value
-						continue
-					}
-					x.Data[ii] = value
-				}
-				xx := aa.MulT(x)
-				for ii := range lines {
-					y := NewMatrix(width, 1, make([]float32, width)...)
-					for iii, value := range lines[ii].Vector {
-						if value < 0 {
-							y.Data[size+iii] = -value
-							continue
-						}
-						y.Data[iii] = value
-					}
-					yy := bb.MulT(y)
-					cs := xx.CS(yy)
-					graph.Link(uint32(i), uint32(ii), float64(cs))
-				}
-			}
-			result := make([]float64, len(lines))
-			graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
-				result[node] = rank
-			})
-			results[iteration] = result
+		config := Config{
+			Iterations: iterations,
+			Size:       size,
 		}
-		avg := make([]float64, len(lines))
-		for _, result := range results {
-			for i, value := range result {
-				avg[i] += value
-			}
-		}
-		for i, value := range avg {
-			avg[i] = value / float64(iterations)
-		}
-
-		stddev := make([]float64, len(lines))
-		for _, result := range results {
-			for i, value := range result {
-				diff := value - avg[i]
-				stddev[i] += diff * diff
-			}
-		}
-		for i, value := range stddev {
-			stddev[i] = math.Sqrt(value / float64(iterations))
-		}
-
-		/*cov := make([][]float64, len(lines))
-		for i := range cov {
-			cov[i] = make([]float64, len(lines))
-		}
-		for _, measures := range results {
-			for i, v := range measures {
-				for ii, vv := range measures {
-					diff1 := avg[i] - v
-					diff2 := avg[ii] - vv
-					cov[i][ii] += diff1 * diff2
-				}
-			}
-		}
-		if len(results) > 0 {
-			for i := range cov {
-				for ii := range cov[i] {
-					cov[i][ii] = cov[i][ii] / float64(len(results))
-				}
-			}
-		}*/
+		Process(seed, config, lines)
 
 		sum, norm, c := 0.0, make([]float64, count), 0
 		for i := len(lines) - count; i < len(lines); i++ {
-			sum += stddev[i]
+			sum += lines[i].Stddev
 		}
 		for i := len(lines) - count; i < len(lines); i++ {
-			norm[c] = sum / stddev[i]
+			norm[c] = sum / lines[i].Stddev
 			c++
 		}
 		softmax(norm)
@@ -947,17 +972,17 @@ func main() {
 		}
 
 		next := []byte(input)
-		next = append(next, lines[(len(lines)-count)+index].Symbol)
+		next = append(next, lines[(len(lines)-count)+index].Meta.Symbol)
 
 		sum = 0.0
 		for i := 0; i < len(lines)-count; i++ {
-			sum += avg[i]
+			sum += lines[i].Avg
 		}
-		sum += avg[(len(lines)-count)+index]
+		sum += lines[(len(lines)-count)+index].Avg
 
 		return Trace{
 			Trace: string(next),
-			Value: avg[(len(lines)-count)+index] / sum,
+			Value: lines[(len(lines)-count)+index].Avg / sum,
 		}
 	}
 
