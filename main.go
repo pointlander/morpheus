@@ -6,9 +6,11 @@ package main
 
 import (
 	"compress/bzip2"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"runtime/pprof"
 )
@@ -22,6 +24,10 @@ var (
 	FlagText = flag.Bool("text", false, "text generation mode")
 	// FlagE is an experiment
 	FlagE = flag.Bool("e", false, "experiment")
+	// FlagLearn learn the vector database
+	FlagLearn = flag.Bool("learn", false, "learn the vector database")
+	// FlagPrompt the prompt to use
+	FlagPrompt = flag.String("prompt", "What is the meaning of life?", "the prompt to use")
 	// cpuprofile profiles the program
 	cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
 )
@@ -66,7 +72,7 @@ func main() {
 	for i := range vectors {
 		vectors[i] = make(map[Markov][]uint32)
 	}
-	load := func(book string) {
+	load := func(book string) []byte {
 		file, err := Text.Open(book)
 		if err != nil {
 			panic(err)
@@ -98,16 +104,96 @@ func main() {
 				}
 			}
 		}
+		return data
 	}
 	load("books/pg74.txt.bz2")
 	load("books/10.txt.utf-8.bz2")
 	load("books/76.txt.utf-8.bz2")
 	load("books/84.txt.utf-8.bz2")
-	load("books/100.txt.utf-8.bz2")
+	data := load("books/100.txt.utf-8.bz2")
 	load("books/1837.txt.utf-8.bz2")
 	load("books/2701.txt.utf-8.bz2")
 	load("books/3176.txt.utf-8.bz2")
 	for i := range vectors {
 		fmt.Println(i, len(vectors[i]))
 	}
+
+	rng := rand.New(rand.NewSource(1))
+	config := Config{
+		Iterations: 32,
+		Size:       256,
+		Divider:    8,
+	}
+
+	if *FlagLearn {
+		output, err := os.Create("vectors.db")
+		if err != nil {
+			panic(err)
+		}
+		defer output.Close()
+
+		type T struct{}
+		markov := [order]Markov{}
+		lines := make([]*Vector[T], 8)
+		for index, value := range data[:60*1024] {
+			line := &Vector[T]{
+				Vector: make([]float32, size),
+			}
+			for i := range markov {
+				i = order - 1 - i
+				vector := vectors[i][markov[i]]
+				if vector != nil {
+					for ii := range vector {
+						line.Vector[ii] = float32(vector[ii])
+					}
+					for ii := range lines {
+						lines[ii], line = line, lines[ii]
+					}
+					break
+				}
+			}
+			for i := range markov {
+				state := value
+				for ii, value := range markov[i][:i+1] {
+					markov[i][ii], state = state, value
+				}
+			}
+			for _, line := range lines {
+				if line != nil {
+					line.Avg = 0
+					line.Stddev = 0
+				}
+			}
+			if index < len(lines) {
+				continue
+			}
+			embedding := Morpheus(rng.Int63(), config, lines)
+			rows := len(embedding)
+			cols := len(embedding[0])
+			mat := NewMatrix(rows*cols, 1, make([]float32, rows*cols)...)
+			index := 0
+			for _, row := range embedding {
+				for _, value := range row {
+					mat.Data[index] = float32(value)
+					index++
+				}
+			}
+			err := mat.Write(output)
+			if err != nil {
+				panic(err)
+			}
+			buffer := make([]byte, 1)
+			buffer[0] = value
+			n, err := output.Write(buffer)
+			if err != nil {
+				panic(err)
+			}
+			if n != len(buffer) {
+				panic(errors.New("1 bytes should be been written"))
+			}
+		}
+		return
+	}
+
+	fmt.Println(*FlagPrompt)
 }

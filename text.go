@@ -20,7 +20,7 @@ func TextMode() {
 		iterations = 32
 		size       = 256
 		n          = 10000
-		samples    = 128
+		samples    = 8 //128
 		order      = 4
 		length     = 16
 		segments   = 4
@@ -88,6 +88,12 @@ func TextMode() {
 		markov := [order]Markov{}
 		lines := make([]*Vector[Line], 0, 8)
 		for _, value := range []byte(input) {
+			for i := range markov {
+				state := value
+				for ii, value := range markov[i][:i+1] {
+					markov[i][ii], state = state, value
+				}
+			}
 			line := Vector[Line]{
 				Meta: Line{
 					Symbol: value,
@@ -102,16 +108,9 @@ func TextMode() {
 						line.Vector[ii] = float32(vector[ii])
 					}
 					lines = append(lines, &line)
-				}
-				break
-			}
-			for i := range markov {
-				state := value
-				for ii, value := range markov[i][:i+1] {
-					markov[i][ii], state = state, value
+					break
 				}
 			}
-
 		}
 		count := 0
 		for i := range markov {
