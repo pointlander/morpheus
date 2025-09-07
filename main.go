@@ -124,6 +124,7 @@ func main() {
 		Size:       256,
 		Divider:    8,
 	}
+	type T struct{}
 
 	if *FlagLearn {
 		output, err := os.Create("vectors.db")
@@ -132,7 +133,6 @@ func main() {
 		}
 		defer output.Close()
 
-		type T struct{}
 		markov := [order]Markov{}
 		lines := make([]*Vector[T], 8)
 		for index, value := range data[:60*1024] {
@@ -196,4 +196,106 @@ func main() {
 	}
 
 	fmt.Println(*FlagPrompt)
+	input, err := os.Open("vectors.db")
+	if err != nil {
+		panic(err)
+	}
+	defer input.Close()
+
+	markov := [order]Markov{}
+	lines := make([]*Vector[T], 8)
+	for _, value := range []byte(*FlagPrompt) {
+		line := &Vector[T]{
+			Vector: make([]float32, size),
+		}
+		for i := range markov {
+			i = order - 1 - i
+			vector := vectors[i][markov[i]]
+			if vector != nil {
+				for ii := range vector {
+					line.Vector[ii] = float32(vector[ii])
+				}
+				for ii := range lines {
+					lines[ii], line = line, lines[ii]
+				}
+				break
+			}
+		}
+		for i := range markov {
+			state := value
+			for ii, value := range markov[i][:i+1] {
+				markov[i][ii], state = state, value
+			}
+		}
+	}
+
+	var symbol byte
+	generated := []byte(*FlagPrompt)
+	for range 33 {
+		line := &Vector[T]{
+			Vector: make([]float32, size),
+		}
+		for i := range markov {
+			i = order - 1 - i
+			vector := vectors[i][markov[i]]
+			if vector != nil {
+				for ii := range vector {
+					line.Vector[ii] = float32(vector[ii])
+				}
+				for ii := range lines {
+					lines[ii], line = line, lines[ii]
+				}
+				break
+			}
+		}
+		for i := range markov {
+			state := symbol
+			for ii, value := range markov[i][:i+1] {
+				markov[i][ii], state = state, value
+			}
+		}
+		for _, line := range lines {
+			if line != nil {
+				line.Avg = 0
+				line.Stddev = 0
+			}
+		}
+		embedding := Morpheus(rng.Int63(), config, lines)
+		rows := len(embedding)
+		cols := len(embedding[0])
+		mat := NewMatrix(rows*cols, 1, make([]float32, rows*cols)...)
+		index := 0
+		for _, row := range embedding {
+			for _, value := range row {
+				mat.Data[index] = float32(value)
+				index++
+			}
+		}
+
+		max := float32(0.0)
+		for {
+			vector := NewMatrix[float32](rows*cols, 1)
+			err := vector.Read(input)
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				panic(err)
+			}
+			buffer := make([]byte, 1)
+			n, err := input.Read(buffer)
+			if err != nil {
+				panic(err)
+			}
+			if n != len(buffer) {
+				panic(fmt.Errorf("not all bytes read: %d", n))
+			}
+			cs := mat.CS(vector)
+			if cs > max {
+				max, symbol = cs, buffer[0]
+			}
+		}
+		input.Seek(0, io.SeekStart)
+		generated = append(generated, symbol)
+	}
+	fmt.Println(string(generated))
 }
