@@ -265,7 +265,7 @@ func main() {
 		}
 	}
 
-	var symbol byte
+	//var symbol byte
 	generated := []byte(*FlagPrompt)
 	for range 33 {
 		line := &Vector[T]{
@@ -302,7 +302,12 @@ func main() {
 			}
 		}
 
-		max := float32(0.0)
+		type Item struct {
+			Cosine float32
+			Symbol byte
+		}
+		items := make([]Item, 128)
+		//max := float32(0.0)
 		for i := range files {
 			for {
 				vector := NewMatrix[float32](rows*cols, 1)
@@ -321,21 +326,49 @@ func main() {
 					panic(fmt.Errorf("not all bytes read: %d", n))
 				}
 				cs := mat.CS(vector)
-				if cs > max {
+				/*if cs > max {
 					max, symbol = cs, buffer[0]
+				}*/
+				point := 0
+				for i := range items {
+					if items[i].Cosine < cs {
+						point = i
+						break
+					}
 				}
-			}
-		}
-		for i := range markov {
-			state := symbol
-			for ii, value := range markov[i][:i+1] {
-				markov[i][ii], state = state, value
+				if point < len(items) {
+					cosine := Item{
+						Cosine: items[point].Cosine,
+						Symbol: buffer[0],
+					}
+					for i := point; i < len(items); i++ {
+						items[i], cosine = cosine, items[i]
+					}
+				}
 			}
 		}
 		for i := range files {
 			files[i].Atad.Seek(0, io.SeekStart)
 		}
-		generated = append(generated, symbol)
+		sum := float32(0.0)
+		for i := range items {
+			sum += items[i].Cosine
+		}
+		total, selected, index := float32(0.0), rng.Float32(), 0
+		for i := range items {
+			total += items[i].Cosine / sum
+			if selected < total {
+				index = i
+				break
+			}
+		}
+		for i := range markov {
+			state := items[index].Symbol
+			for ii, value := range markov[i][:i+1] {
+				markov[i][ii], state = state, value
+			}
+		}
+		generated = append(generated, items[index].Symbol)
 	}
 	fmt.Println(string(generated))
 }
