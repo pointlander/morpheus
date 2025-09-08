@@ -67,6 +67,23 @@ func main() {
 		order = 4
 	)
 
+	type File struct {
+		Name string
+		Data []byte
+		Atad *os.File
+	}
+
+	files := []File{
+		{Name: "pg74.txt.bz2"},
+		{Name: "10.txt.utf-8.bz2"},
+		{Name: "76.txt.utf-8.bz2"},
+		{Name: "84.txt.utf-8.bz2"},
+		{Name: "100.txt.utf-8.bz2"},
+		{Name: "1837.txt.utf-8.bz2"},
+		{Name: "2701.txt.utf-8.bz2"},
+		{Name: "3176.txt.utf-8.bz2"},
+	}
+
 	type Markov [order]byte
 	var vectors [order]map[Markov][]uint32
 	for i := range vectors {
@@ -106,14 +123,9 @@ func main() {
 		}
 		return data
 	}
-	load("books/pg74.txt.bz2")
-	load("books/10.txt.utf-8.bz2")
-	load("books/76.txt.utf-8.bz2")
-	load("books/84.txt.utf-8.bz2")
-	data := load("books/100.txt.utf-8.bz2")
-	load("books/1837.txt.utf-8.bz2")
-	load("books/2701.txt.utf-8.bz2")
-	load("books/3176.txt.utf-8.bz2")
+	for i := range files {
+		files[i].Data = load(fmt.Sprintf("books/%s", files[i].Name))
+	}
 	for i := range vectors {
 		fmt.Println(i, len(vectors[i]))
 	}
@@ -127,80 +139,102 @@ func main() {
 	type T struct{}
 
 	if *FlagLearn {
-		output, err := os.Create("vectors.db")
-		if err != nil {
-			panic(err)
-		}
-		defer output.Close()
+		done := make(chan bool, 8)
+		learn := func(file File) {
+			output, err := os.Create(fmt.Sprintf("%s.v", file.Name))
+			if err != nil {
+				panic(err)
+			}
+			defer output.Close()
 
-		markov := [order]Markov{}
-		lines := make([]*Vector[T], 8)
-		for index, value := range data[:60*1024] {
-			line := &Vector[T]{
-				Vector: make([]float32, size),
+			markov := [order]Markov{}
+			lines := make([]*Vector[T], 8)
+			data := file.Data
+			const limit = 8 * 60 * 1024
+			if len(data) > limit {
+				data = data[:limit]
 			}
-			for i := range markov {
-				i = order - 1 - i
-				vector := vectors[i][markov[i]]
-				if vector != nil {
-					for ii := range vector {
-						line.Vector[ii] = float32(vector[ii])
+			for index, value := range data {
+				line := &Vector[T]{
+					Vector: make([]float32, size),
+				}
+				for i := range markov {
+					i = order - 1 - i
+					vector := vectors[i][markov[i]]
+					if vector != nil {
+						for ii := range vector {
+							line.Vector[ii] = float32(vector[ii])
+						}
+						for ii := range lines {
+							lines[ii], line = line, lines[ii]
+						}
+						break
 					}
-					for ii := range lines {
-						lines[ii], line = line, lines[ii]
+				}
+				for i := range markov {
+					state := value
+					for ii, value := range markov[i][:i+1] {
+						markov[i][ii], state = state, value
 					}
-					break
+				}
+				for _, line := range lines {
+					if line != nil {
+						line.Avg = 0
+						line.Stddev = 0
+					}
+				}
+				if index < len(lines) {
+					continue
+				}
+				embedding := Morpheus(rng.Int63(), config, lines)
+				rows := len(embedding)
+				cols := len(embedding[0])
+				mat := NewMatrix(rows*cols, 1, make([]float32, rows*cols)...)
+				index := 0
+				for _, row := range embedding {
+					for _, value := range row {
+						mat.Data[index] = float32(value)
+						index++
+					}
+				}
+				err := mat.Write(output)
+				if err != nil {
+					panic(err)
+				}
+				buffer := make([]byte, 1)
+				buffer[0] = value
+				n, err := output.Write(buffer)
+				if err != nil {
+					panic(err)
+				}
+				if n != len(buffer) {
+					panic(errors.New("1 bytes should be been written"))
 				}
 			}
-			for i := range markov {
-				state := value
-				for ii, value := range markov[i][:i+1] {
-					markov[i][ii], state = state, value
-				}
-			}
-			for _, line := range lines {
-				if line != nil {
-					line.Avg = 0
-					line.Stddev = 0
-				}
-			}
-			if index < len(lines) {
-				continue
-			}
-			embedding := Morpheus(rng.Int63(), config, lines)
-			rows := len(embedding)
-			cols := len(embedding[0])
-			mat := NewMatrix(rows*cols, 1, make([]float32, rows*cols)...)
-			index := 0
-			for _, row := range embedding {
-				for _, value := range row {
-					mat.Data[index] = float32(value)
-					index++
-				}
-			}
-			err := mat.Write(output)
-			if err != nil {
-				panic(err)
-			}
-			buffer := make([]byte, 1)
-			buffer[0] = value
-			n, err := output.Write(buffer)
-			if err != nil {
-				panic(err)
-			}
-			if n != len(buffer) {
-				panic(errors.New("1 bytes should be been written"))
-			}
+			done <- true
+		}
+		for _, file := range files {
+			go learn(file)
+		}
+		for range files {
+			<-done
 		}
 		return
 	}
 
 	fmt.Println(*FlagPrompt)
-	input, err := os.Open("vectors.db")
-	if err != nil {
-		panic(err)
+	for i := range files {
+		input, err := os.Open(fmt.Sprintf("%s.v", files[i].Name))
+		if err != nil {
+			panic(err)
+		}
+		files[i].Atad = input
 	}
-	defer input.Close()
+	defer func() {
+		for i := range files {
+			files[i].Atad.Close()
+		}
+	}()
 
 	markov := [order]Markov{}
 	lines := make([]*Vector[T], 8)
@@ -267,25 +301,27 @@ func main() {
 		}
 
 		max := float32(0.0)
-		for {
-			vector := NewMatrix[float32](rows*cols, 1)
-			err := vector.Read(input)
-			if err == io.EOF {
-				break
-			} else if err != nil {
-				panic(err)
-			}
-			buffer := make([]byte, 1)
-			n, err := input.Read(buffer)
-			if err != nil {
-				panic(err)
-			}
-			if n != len(buffer) {
-				panic(fmt.Errorf("not all bytes read: %d", n))
-			}
-			cs := mat.CS(vector)
-			if cs > max {
-				max, symbol = cs, buffer[0]
+		for i := range files {
+			for {
+				vector := NewMatrix[float32](rows*cols, 1)
+				err := vector.Read(files[i].Atad)
+				if err == io.EOF {
+					break
+				} else if err != nil {
+					panic(err)
+				}
+				buffer := make([]byte, 1)
+				n, err := files[i].Atad.Read(buffer)
+				if err != nil {
+					panic(err)
+				}
+				if n != len(buffer) {
+					panic(fmt.Errorf("not all bytes read: %d", n))
+				}
+				cs := mat.CS(vector)
+				if cs > max {
+					max, symbol = cs, buffer[0]
+				}
 			}
 		}
 		for i := range markov {
@@ -294,7 +330,9 @@ func main() {
 				markov[i][ii], state = state, value
 			}
 		}
-		input.Seek(0, io.SeekStart)
+		for i := range files {
+			files[i].Atad.Seek(0, io.SeekStart)
+		}
 		generated = append(generated, symbol)
 	}
 	fmt.Println(string(generated))
