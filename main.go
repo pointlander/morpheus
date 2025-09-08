@@ -248,12 +248,6 @@ func main() {
 				break
 			}
 		}
-		for i := range markov {
-			state := symbol
-			for ii, value := range markov[i][:i+1] {
-				markov[i][ii], state = state, value
-			}
-		}
 		for _, line := range lines {
 			if line != nil {
 				line.Avg = 0
@@ -292,6 +286,12 @@ func main() {
 			cs := mat.CS(vector)
 			if cs > max {
 				max, symbol = cs, buffer[0]
+			}
+		}
+		for i := range markov {
+			state := symbol
+			for ii, value := range markov[i][:i+1] {
+				markov[i][ii], state = state, value
 			}
 		}
 		input.Seek(0, io.SeekStart)
