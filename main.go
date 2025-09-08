@@ -338,7 +338,7 @@ func main() {
 				}
 				if point < len(items) {
 					cosine := Item{
-						Cosine: items[point].Cosine,
+						Cosine: cs,
 						Symbol: buffer[0],
 					}
 					for i := point; i < len(items); i++ {
