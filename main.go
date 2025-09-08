@@ -130,7 +130,6 @@ func main() {
 		fmt.Println(i, len(vectors[i]))
 	}
 
-	rng := rand.New(rand.NewSource(1))
 	config := Config{
 		Iterations: 32,
 		Size:       256,
@@ -140,7 +139,8 @@ func main() {
 
 	if *FlagLearn {
 		done := make(chan bool, 8)
-		learn := func(file File) {
+		learn := func(file File, seed int64) {
+			rng := rand.New(rand.NewSource(seed))
 			output, err := os.Create(fmt.Sprintf("%s.v", file.Name))
 			if err != nil {
 				panic(err)
@@ -213,8 +213,9 @@ func main() {
 			}
 			done <- true
 		}
+		rng := rand.New(rand.NewSource(1))
 		for _, file := range files {
-			go learn(file)
+			go learn(file, rng.Int63())
 		}
 		for range files {
 			<-done
@@ -223,6 +224,7 @@ func main() {
 	}
 
 	fmt.Println(*FlagPrompt)
+	rng := rand.New(rand.NewSource(1))
 	for i := range files {
 		input, err := os.Open(fmt.Sprintf("%s.v", files[i].Name))
 		if err != nil {
