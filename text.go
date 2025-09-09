@@ -178,14 +178,23 @@ func TextMode() {
 			Size:       size,
 			Divider:    8,
 		}
-		Morpheus(seed, config, lines)
+		cov := Morpheus(seed, config, lines)
+		v := make([]float64, len(cov))
+		for i := range cov {
+			for _, value := range cov[i] {
+				v[i] = value * value
+			}
+		}
+		for i, value := range v {
+			v[i] = math.Sqrt(value)
+		}
 
 		sum, norm, c := 0.0, make([]float64, count), 0
 		for i := len(lines) - count; i < len(lines); i++ {
-			sum += lines[i].Stddev
+			sum += v[i] //lines[i].Stddev
 		}
 		for i := len(lines) - count; i < len(lines); i++ {
-			norm[c] = sum / lines[i].Stddev
+			norm[c] = sum / v[i] //lines[i].Stddev
 			c++
 		}
 		softmax(norm)
