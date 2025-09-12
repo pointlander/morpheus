@@ -206,7 +206,7 @@ func main() {
 	}
 
 	config := Config{
-		Iterations: 64,
+		Iterations: 8,
 		Size:       length,
 		Divider:    1,
 	}
