@@ -152,13 +152,8 @@ func main() {
 	for range 1024 {
 		segment := Segment{}
 		markov := [order]Markov{}
-		for _, value := range input {
-			for i := range markov {
-				state := value
-				for ii, value := range markov[i][:i+1] {
-					markov[i][ii], state = state, value
-				}
-			}
+		var val byte
+		for _, val = range input {
 			for i := range markov {
 				i = order - 1 - i
 				vector := vectors[i][markov[i]]
@@ -167,28 +162,20 @@ func main() {
 					for _, value := range vector {
 						sum += float32(value)
 					}
-					total, selection := float32(0.0), rng.Float32()
-					for i, value := range vector {
-						total += float32(value) / sum
-						if selection < total {
-							segment.Segment = append(segment.Segment, byte(i))
-							segment.Embedding = append(segment.Embedding, float32(value)/sum)
-							break
-						}
-					}
+					segment.Segment = append(segment.Segment, val)
+					segment.Embedding = append(segment.Embedding, float32(vector[val])/sum)
 					break
+				}
+			}
+			for i := range markov {
+				state := val
+				for ii, value := range markov[i][:i+1] {
+					markov[i][ii], state = state, value
 				}
 			}
 		}
 
 		for range width {
-			value := byte(rng.Intn(128))
-			for i := range markov {
-				state := value
-				for ii, value := range markov[i][:i+1] {
-					markov[i][ii], state = state, value
-				}
-			}
 			for i := range markov {
 				i = order - 1 - i
 				vector := vectors[i][markov[i]]
@@ -202,11 +189,18 @@ func main() {
 						total += float32(value) / sum
 						if selection < total {
 							segment.Segment = append(segment.Segment, byte(i))
+							val = byte(i)
 							segment.Embedding = append(segment.Embedding, float32(value)/sum)
 							break
 						}
 					}
 					break
+				}
+			}
+			for i := range markov {
+				state := val
+				for ii, value := range markov[i][:i+1] {
+					markov[i][ii], state = state, value
 				}
 			}
 		}
@@ -231,5 +225,7 @@ func main() {
 	sort.Slice(segments, func(i, j int) bool {
 		return segments[i].Rank > segments[j].Rank
 	})
-	fmt.Println(string(segments[0].Segment))
+	for i := range segments[:10] {
+		fmt.Println(string(segments[i].Segment))
+	}
 }
