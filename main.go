@@ -9,12 +9,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"os"
 	"runtime/pprof"
 	"sort"
-
-	"github.com/alixaxel/pagerank"
 )
 
 var (
@@ -118,11 +117,11 @@ func main() {
 				if vector == nil {
 					vector = make([]uint32, size)
 				}
-				vector[data[i-3]]++
-				vector[data[i-1]]++
+				//vector[data[i-3]]++
+				//vector[data[i-1]]++
 				vector[value]++
-				vector[data[i+1]]++
-				vector[data[i+3]]++
+				//vector[data[i+1]]++
+				//vector[data[i+3]]++
 				vectors[ii][markov[ii]] = vector
 				state := value
 				for iii, value := range markov[ii][:ii+1] {
@@ -140,17 +139,16 @@ func main() {
 	}
 
 	type Segment struct {
-		Segment   []byte
-		Embedding []float32
-		Rank      float64
+		Segment []byte
+		Rank    float64
 	}
 
 	rng := rand.New(rand.NewSource(1))
-	segments := []Segment{}
+	segments := []*Vector[Segment]{}
 	input := []byte(*FlagPrompt)
 	length := len(input) + width
 	for range 1024 {
-		segment := Segment{}
+		segment := Vector[Segment]{}
 		markov := [order]Markov{}
 		var val byte
 		for _, val = range input {
@@ -162,8 +160,8 @@ func main() {
 					for _, value := range vector {
 						sum += float32(value)
 					}
-					segment.Segment = append(segment.Segment, val)
-					segment.Embedding = append(segment.Embedding, float32(vector[val])/sum)
+					segment.Meta.Segment = append(segment.Meta.Segment, val)
+					segment.Vector = append(segment.Vector, float32(vector[val])/sum)
 					break
 				}
 			}
@@ -188,9 +186,9 @@ func main() {
 					for i, value := range vector {
 						total += float32(value) / sum
 						if selection < total {
-							segment.Segment = append(segment.Segment, byte(i))
+							segment.Meta.Segment = append(segment.Meta.Segment, byte(i))
 							val = byte(i)
-							segment.Embedding = append(segment.Embedding, float32(value)/sum)
+							segment.Vector = append(segment.Vector, float32(value)/sum)
 							break
 						}
 					}
@@ -204,10 +202,25 @@ func main() {
 				}
 			}
 		}
-		segments = append(segments, segment)
+		segments = append(segments, &segment)
 	}
 
-	graph := pagerank.NewGraph()
+	config := Config{
+		Iterations: 64,
+		Size:       length,
+		Divider:    1,
+	}
+
+	cov := Morpheus(rng.Int63(), config, segments)
+	for i := range cov {
+		l2 := 0.0
+		for _, value := range cov[i] {
+			l2 += value * value
+		}
+		segments[i].Meta.Rank = math.Sqrt(l2)
+	}
+
+	/*graph := pagerank.NewGraph()
 	for i := range segments {
 		a := NewMatrix(length, 1, segments[i].Embedding...)
 		for ii := range segments {
@@ -221,11 +234,11 @@ func main() {
 	}
 	graph.Rank(1.0, 1e-6, func(node uint32, rank float64) {
 		segments[node].Rank = rank
-	})
+	})*/
 	sort.Slice(segments, func(i, j int) bool {
-		return segments[i].Rank > segments[j].Rank
+		return segments[i].Meta.Rank < segments[j].Meta.Rank
 	})
 	for i := range segments[:10] {
-		fmt.Println(string(segments[i].Segment))
+		fmt.Println(string(segments[i].Meta.Segment))
 	}
 }
