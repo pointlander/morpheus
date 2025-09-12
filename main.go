@@ -9,8 +9,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"runtime/pprof"
+	"sort"
+
+	"github.com/alixaxel/pagerank"
 )
 
 var (
@@ -69,6 +73,7 @@ func main() {
 
 	const (
 		size  = 256
+		width = 33
 		order = 4
 	)
 
@@ -133,4 +138,98 @@ func main() {
 	for i := range vectors {
 		fmt.Println(i, len(vectors[i]))
 	}
+
+	type Segment struct {
+		Segment   []byte
+		Embedding []float32
+		Rank      float64
+	}
+
+	rng := rand.New(rand.NewSource(1))
+	segments := []Segment{}
+	input := []byte(*FlagPrompt)
+	length := len(input) + width
+	for range 1024 {
+		segment := Segment{}
+		markov := [order]Markov{}
+		for _, value := range input {
+			for i := range markov {
+				state := value
+				for ii, value := range markov[i][:i+1] {
+					markov[i][ii], state = state, value
+				}
+			}
+			for i := range markov {
+				i = order - 1 - i
+				vector := vectors[i][markov[i]]
+				if vector != nil {
+					sum := float32(0.0)
+					for _, value := range vector {
+						sum += float32(value)
+					}
+					total, selection := float32(0.0), rng.Float32()
+					for i, value := range vector {
+						total += float32(value) / sum
+						if selection < total {
+							segment.Segment = append(segment.Segment, byte(i))
+							segment.Embedding = append(segment.Embedding, float32(value)/sum)
+							break
+						}
+					}
+					break
+				}
+			}
+		}
+
+		for range width {
+			value := byte(rng.Intn(128))
+			for i := range markov {
+				state := value
+				for ii, value := range markov[i][:i+1] {
+					markov[i][ii], state = state, value
+				}
+			}
+			for i := range markov {
+				i = order - 1 - i
+				vector := vectors[i][markov[i]]
+				if vector != nil {
+					sum := float32(0.0)
+					for _, value := range vector {
+						sum += float32(value)
+					}
+					total, selection := float32(0.0), rng.Float32()
+					for i, value := range vector {
+						total += float32(value) / sum
+						if selection < total {
+							segment.Segment = append(segment.Segment, byte(i))
+							segment.Embedding = append(segment.Embedding, float32(value)/sum)
+							break
+						}
+					}
+					break
+				}
+			}
+		}
+		segments = append(segments, segment)
+	}
+
+	graph := pagerank.NewGraph()
+	for i := range segments {
+		a := NewMatrix(length, 1, segments[i].Embedding...)
+		for ii := range segments {
+			b := NewMatrix(length, 1, segments[ii].Embedding...)
+			cs := a.CS(b)
+			if cs < 0 {
+				cs = -cs
+			}
+			graph.Link(uint32(i), uint32(ii), float64(cs))
+		}
+	}
+	graph.Rank(1.0, 1e-6, func(node uint32, rank float64) {
+		segments[node].Rank = rank
+	})
+	sort.Slice(segments, func(i, j int) bool {
+		return segments[i].Rank > segments[j].Rank
+	})
+	fmt.Println(string(segments[0].Segment))
 }
