@@ -117,11 +117,7 @@ func main() {
 				if vector == nil {
 					vector = make([]uint32, size)
 				}
-				//vector[data[i-3]]++
-				//vector[data[i-1]]++
 				vector[value]++
-				//vector[data[i+1]]++
-				//vector[data[i+3]]++
 				vectors[ii][markov[ii]] = vector
 				state := value
 				for iii, value := range markov[ii][:ii+1] {
@@ -144,101 +140,109 @@ func main() {
 	}
 
 	rng := rand.New(rand.NewSource(1))
-	segments := []*Vector[Segment]{}
-	input := []byte(*FlagPrompt)
-	length := len(input) + width
-	for range 1024 {
-		segment := Vector[Segment]{}
-		markov := [order]Markov{}
-		var val byte
-		for _, val = range input {
-			for i := range markov {
-				i = order - 1 - i
-				vector := vectors[i][markov[i]]
-				if vector != nil {
-					sum := float32(0.0)
-					for _, value := range vector {
-						sum += float32(value)
-					}
-					segment.Meta.Segment = append(segment.Meta.Segment, val)
-					segment.Vector = append(segment.Vector, float32(vector[val])/sum)
-					break
-				}
-			}
-			for i := range markov {
-				state := val
-				for ii, value := range markov[i][:i+1] {
-					markov[i][ii], state = state, value
-				}
-			}
-		}
-
-		for range width {
-			for i := range markov {
-				i = order - 1 - i
-				vector := vectors[i][markov[i]]
-				if vector != nil {
-					sum := float32(0.0)
-					for _, value := range vector {
-						sum += float32(value)
-					}
-					total, selection := float32(0.0), rng.Float32()
-					for i, value := range vector {
-						total += float32(value) / sum
-						if selection < total {
-							segment.Meta.Segment = append(segment.Meta.Segment, byte(i))
-							val = byte(i)
-							segment.Vector = append(segment.Vector, float32(value)/sum)
-							break
+	for range 3 {
+		segments := []*Vector[Segment]{}
+		input := []byte(*FlagPrompt)
+		length := len(input) + width
+		for range 1024 {
+			segment := Vector[Segment]{}
+			markov := [order]Markov{}
+			var val byte
+			for _, val = range input {
+				for i := range markov {
+					i = order - 1 - i
+					vector := vectors[i][markov[i]]
+					if vector != nil {
+						sum := float32(0.0)
+						for _, value := range vector {
+							sum += float32(value)
 						}
+						segment.Meta.Segment = append(segment.Meta.Segment, val)
+						segment.Vector = append(segment.Vector, float32(vector[val])/sum)
+						break
 					}
-					break
+				}
+				for i := range markov {
+					state := val
+					for ii, value := range markov[i][:i+1] {
+						markov[i][ii], state = state, value
+					}
 				}
 			}
-			for i := range markov {
-				state := val
-				for ii, value := range markov[i][:i+1] {
-					markov[i][ii], state = state, value
+
+			for range width {
+				for i := range markov {
+					i = order - 1 - i
+					vector := vectors[i][markov[i]]
+					if vector != nil {
+						sum := float32(0.0)
+						for _, value := range vector {
+							sum += float32(value)
+						}
+						total, selection := float32(0.0), rng.Float32()
+						for i, value := range vector {
+							total += float32(value) / sum
+							if selection < total {
+								segment.Meta.Segment = append(segment.Meta.Segment, byte(i))
+								val = byte(i)
+								segment.Vector = append(segment.Vector, float32(value)/sum)
+								break
+							}
+						}
+						break
+					}
+				}
+				for i := range markov {
+					state := val
+					for ii, value := range markov[i][:i+1] {
+						markov[i][ii], state = state, value
+					}
+				}
+			}
+			segments = append(segments, &segment)
+		}
+
+		config := Config{
+			Iterations: 8,
+			Size:       length,
+			Divider:    1,
+		}
+
+		cov := Morpheus(rng.Int63(), config, segments)
+		for i := range cov {
+			l2 := 0.0
+			for _, value := range cov[i] {
+				l2 += value * value
+			}
+			segments[i].Meta.Rank = math.Sqrt(l2)
+		}
+		sort.Slice(segments, func(i, j int) bool {
+			return segments[i].Meta.Rank < segments[j].Meta.Rank
+		})
+		for i := range segments[:10] {
+			fmt.Println(string(segments[i].Meta.Segment))
+		}
+		fmt.Println("---------------------------------------")
+
+		for i := range vectors {
+			vectors[i] = make(map[Markov][]uint32)
+		}
+		for i := range segments[:len(segments)/2] {
+			markov := [order]Markov{}
+			for _, value := range segments[i].Meta.Segment {
+				for iii := range markov {
+					vector := vectors[iii][markov[iii]]
+					if vector == nil {
+						vector = make([]uint32, size)
+					}
+					vector[value]++
+					vectors[iii][markov[iii]] = vector
+					state := value
+					for iv, value := range markov[iii][:iii+1] {
+						markov[iii][iv], state = state, value
+					}
 				}
 			}
 		}
-		segments = append(segments, &segment)
-	}
-
-	config := Config{
-		Iterations: 8,
-		Size:       length,
-		Divider:    1,
-	}
-
-	cov := Morpheus(rng.Int63(), config, segments)
-	for i := range cov {
-		l2 := 0.0
-		for _, value := range cov[i] {
-			l2 += value * value
-		}
-		segments[i].Meta.Rank = math.Sqrt(l2)
-	}
-
-	/*graph := pagerank.NewGraph()
-	for i := range segments {
-		a := NewMatrix(length, 1, segments[i].Embedding...)
-		for ii := range segments {
-			b := NewMatrix(length, 1, segments[ii].Embedding...)
-			cs := a.CS(b)
-			if cs < 0 {
-				cs = -cs
-			}
-			graph.Link(uint32(i), uint32(ii), float64(cs))
-		}
-	}
-	graph.Rank(1.0, 1e-6, func(node uint32, rank float64) {
-		segments[node].Rank = rank
-	})*/
-	sort.Slice(segments, func(i, j int) bool {
-		return segments[i].Meta.Rank < segments[j].Meta.Rank
-	})
-	for i := range segments[:10] {
-		fmt.Println(string(segments[i].Meta.Segment))
 	}
 }
