@@ -150,6 +150,7 @@ func main() {
 	type Segment struct {
 		Segment []byte
 		Rank    float64
+		Cluster int
 	}
 
 	rng := rand.New(rand.NewSource(1))
@@ -159,7 +160,7 @@ func main() {
 		length := len(input) + width
 		sets := [][order]map[Markov][]uint32{A, B}
 		for _, vectors := range sets {
-			for range 512 {
+			for range 1024 {
 				segment := Vector[Segment]{}
 				markov := [order]Markov{}
 				var val byte
@@ -232,12 +233,6 @@ func main() {
 			}
 			segments[i].Meta.Rank = math.Sqrt(l2)
 		}
-		sort.Slice(segments, func(i, j int) bool {
-			return segments[i].Meta.Rank < segments[j].Meta.Rank
-		})
-		for i := range segments[:10] {
-			fmt.Println(string(segments[i].Meta.Segment))
-		}
 
 		meta := make([][]float64, len(segments))
 		for i := range meta {
@@ -262,6 +257,17 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		for i := range segments {
+			segments[i].Meta.Cluster = clusters[i]
+		}
+
+		sort.Slice(segments, func(i, j int) bool {
+			return segments[i].Stddev < segments[j].Stddev
+		})
+		for i := range segments[:10] {
+			fmt.Println(string(segments[i].Meta.Segment))
+		}
+
 		fmt.Println("---------------------------------------")
 
 		for i := range A {
@@ -273,7 +279,7 @@ func main() {
 		for i := range segments {
 			markov := [order]Markov{}
 			vectors := A
-			if clusters[i] == 1 {
+			if segments[i].Meta.Cluster == 1 {
 				vectors = B
 			}
 			for _, value := range segments[i].Meta.Segment {
