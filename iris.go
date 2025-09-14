@@ -179,6 +179,10 @@ func IrisMode() {
 		fmt.Println(k, v)
 	}
 
+	if !*FlagE {
+		return
+	}
+
 	var auto [3]*AutoEncoder
 	for i := range auto {
 		auto[i] = NewAutoEncoder(len(vectors), 1)
