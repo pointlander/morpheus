@@ -73,9 +73,11 @@ func main() {
 	}
 
 	const (
-		size  = 256
-		width = 33
-		order = 4
+		size     = 256
+		width    = 33
+		order    = 4
+		clusters = 2
+		samples  = 1024
 	)
 
 	type File struct {
@@ -95,12 +97,11 @@ func main() {
 	}
 
 	type Markov [order]byte
-	var A, B [order]map[Markov][]uint32
-	for i := range A {
-		A[i] = make(map[Markov][]uint32)
-	}
-	for i := range B {
-		B[i] = make(map[Markov][]uint32)
+	var sets [clusters][order]map[Markov][]uint32
+	for i := range sets {
+		for ii := range sets[i] {
+			sets[i][ii] = make(map[Markov][]uint32)
+		}
 	}
 	load := func(book string) []byte {
 		file, err := Text.Open(book)
@@ -118,19 +119,12 @@ func main() {
 		for i, value := range data[:len(data)-6] {
 			i += 3
 			for ii := range markov {
-				vector := A[ii][markov[ii]]
+				vector := sets[0][ii][markov[ii]]
 				if vector == nil {
 					vector = make([]uint32, size)
 				}
 				vector[value]++
-				A[ii][markov[ii]] = vector
-
-				vector = B[ii][markov[ii]]
-				if vector == nil {
-					vector = make([]uint32, size)
-				}
-				vector[value]++
-				B[ii][markov[ii]] = vector
+				sets[0][ii][markov[ii]] = vector
 
 				state := value
 				for iii, value := range markov[ii][:ii+1] {
@@ -143,8 +137,11 @@ func main() {
 	for i := range files {
 		files[i].Data = load(fmt.Sprintf("books/%s", files[i].Name))
 	}
-	for i := range A {
-		fmt.Println(i, len(A[i]))
+	for i := range sets[0] {
+		fmt.Println(i, len(sets[0][i]))
+	}
+	for i := 1; i < len(sets); i++ {
+		sets[i] = sets[0]
 	}
 
 	type Segment struct {
@@ -158,9 +155,8 @@ func main() {
 		segments := []*Vector[Segment]{}
 		input := []byte(*FlagPrompt)
 		length := len(input) + width
-		sets := [][order]map[Markov][]uint32{A, B}
 		for _, vectors := range sets {
-			for range 1024 {
+			for range samples {
 				segment := Vector[Segment]{}
 				markov := [order]Markov{}
 				var val byte
@@ -238,7 +234,7 @@ func main() {
 		for i := range meta {
 			meta[i] = make([]float64, len(segments))
 		}
-		const k = 2
+		const k = clusters
 		for i := 0; i < 33; i++ {
 			clusters, _, err := kmeans.Kmeans(int64(i+1), cov, k, kmeans.SquaredEuclideanDistance, -1)
 			if err != nil {
@@ -270,26 +266,21 @@ func main() {
 
 		fmt.Println("---------------------------------------")
 
-		for i := range A {
-			A[i] = make(map[Markov][]uint32)
-		}
-		for i := range B {
-			B[i] = make(map[Markov][]uint32)
+		for i := range sets {
+			for ii := range sets[i] {
+				sets[i][ii] = make(map[Markov][]uint32)
+			}
 		}
 		for i := range segments {
 			markov := [order]Markov{}
-			vectors := A
-			if segments[i].Meta.Cluster == 1 {
-				vectors = B
-			}
 			for _, value := range segments[i].Meta.Segment {
 				for iii := range markov {
-					vector := vectors[iii][markov[iii]]
+					vector := sets[segments[i].Meta.Cluster][iii][markov[iii]]
 					if vector == nil {
 						vector = make([]uint32, size)
 					}
 					vector[value]++
-					vectors[iii][markov[iii]] = vector
+					sets[segments[i].Meta.Cluster][iii][markov[iii]] = vector
 					state := value
 					for iv, value := range markov[iii][:iii+1] {
 						markov[iii][iv], state = state, value
