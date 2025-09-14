@@ -30,9 +30,15 @@ func Morpheus[T any](seed int64, config Config, vectors []*Vector[T]) [][]float6
 	rng := rand.New(rand.NewSource(seed))
 	results := make([][]float64, config.Iterations)
 	width := 2 * config.Size
+	cols, rows := width, width
+	if config.Divider == 0 {
+		rows = int(math.Ceil(math.Log2(float64(width))))
+	} else {
+		rows /= config.Divider
+	}
 	for iteration := range config.Iterations {
-		a, b := NewMatrix(width, width/config.Divider, make([]float32, width*width/config.Divider)...),
-			NewMatrix(width, width/config.Divider, make([]float32, width*width/config.Divider)...)
+		a, b := NewMatrix(cols, rows, make([]float32, cols*rows)...),
+			NewMatrix(cols, rows, make([]float32, cols*rows)...)
 		index := 0
 		for range a.Rows {
 			for range a.Cols {
@@ -45,7 +51,7 @@ func Morpheus[T any](seed int64, config Config, vectors []*Vector[T]) [][]float6
 		bb := b.Softmax(1)
 		graph := pagerank.NewGraph()
 		for i := range vectors {
-			x := NewMatrix(width, 1, make([]float32, width)...)
+			x := NewMatrix(cols, 1, make([]float32, cols)...)
 			for ii, value := range vectors[i].Vector {
 				if value < 0 {
 					x.Data[config.Size+ii] = -value
@@ -55,7 +61,7 @@ func Morpheus[T any](seed int64, config Config, vectors []*Vector[T]) [][]float6
 			}
 			xx := aa.MulT(x)
 			for ii := range vectors {
-				y := NewMatrix(width, 1, make([]float32, width)...)
+				y := NewMatrix(cols, 1, make([]float32, cols)...)
 				for iii, value := range vectors[ii].Vector {
 					if value < 0 {
 						y.Data[config.Size+iii] = -value
