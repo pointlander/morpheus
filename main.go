@@ -289,4 +289,69 @@ func main() {
 			}
 		}
 	}
+
+	segments := []*Vector[Segment]{}
+	input := []byte(*FlagPrompt)
+	for _, vectors := range sets {
+		segment := Vector[Segment]{}
+		markov := [order]Markov{}
+		var val byte
+		for _, val = range input {
+			for i := range markov {
+				i = order - 1 - i
+				vector := vectors[i][markov[i]]
+				if vector != nil {
+					sum := float32(0.0)
+					for _, value := range vector {
+						sum += float32(value)
+					}
+					segment.Meta.Segment = append(segment.Meta.Segment, val)
+					segment.Vector = append(segment.Vector, float32(vector[val])/sum)
+					break
+				}
+			}
+			for i := range markov {
+				state := val
+				for ii, value := range markov[i][:i+1] {
+					markov[i][ii], state = state, value
+				}
+			}
+		}
+
+		for range 8 * 1024 {
+			for i := range markov {
+				i = order - 1 - i
+				vector := vectors[i][markov[i]]
+				if vector != nil {
+					sum := float32(0.0)
+					for _, value := range vector {
+						sum += float32(value)
+					}
+					total, selection := float32(0.0), rng.Float32()
+					for i, value := range vector {
+						total += float32(value) / sum
+						if selection < total {
+							segment.Meta.Segment = append(segment.Meta.Segment, byte(i))
+							val = byte(i)
+							segment.Vector = append(segment.Vector, float32(value)/sum)
+							break
+						}
+					}
+					break
+				}
+			}
+			for i := range markov {
+				state := val
+				for ii, value := range markov[i][:i+1] {
+					markov[i][ii], state = state, value
+				}
+			}
+		}
+		segments = append(segments, &segment)
+	}
+
+	for i := range segments {
+		fmt.Println(string(segments[i].Meta.Segment))
+		fmt.Println("---------------------------")
+	}
 }
