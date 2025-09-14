@@ -112,7 +112,7 @@ func IrisMode() {
 	config := Config{
 		Iterations: 512,
 		Size:       4,
-		Divider:    1,
+		Divider:    2,
 	}
 	cov := Morpheus(rng.Int63(), config, vectors)
 
