@@ -76,8 +76,8 @@ func main() {
 		size     = 256
 		width    = 33
 		order    = 4
-		clusters = 2
-		samples  = 1024
+		clusters = 4
+		samples  = 512
 	)
 
 	type File struct {
