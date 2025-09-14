@@ -14,6 +14,8 @@ import (
 	"os"
 	"runtime/pprof"
 	"sort"
+
+	"github.com/pointlander/morpheus/kmeans"
 )
 
 var (
@@ -93,9 +95,12 @@ func main() {
 	}
 
 	type Markov [order]byte
-	var vectors [order]map[Markov][]uint32
-	for i := range vectors {
-		vectors[i] = make(map[Markov][]uint32)
+	var A, B [order]map[Markov][]uint32
+	for i := range A {
+		A[i] = make(map[Markov][]uint32)
+	}
+	for i := range B {
+		B[i] = make(map[Markov][]uint32)
 	}
 	load := func(book string) []byte {
 		file, err := Text.Open(book)
@@ -113,12 +118,20 @@ func main() {
 		for i, value := range data[:len(data)-6] {
 			i += 3
 			for ii := range markov {
-				vector := vectors[ii][markov[ii]]
+				vector := A[ii][markov[ii]]
 				if vector == nil {
 					vector = make([]uint32, size)
 				}
 				vector[value]++
-				vectors[ii][markov[ii]] = vector
+				A[ii][markov[ii]] = vector
+
+				vector = B[ii][markov[ii]]
+				if vector == nil {
+					vector = make([]uint32, size)
+				}
+				vector[value]++
+				B[ii][markov[ii]] = vector
+
 				state := value
 				for iii, value := range markov[ii][:ii+1] {
 					markov[ii][iii], state = state, value
@@ -130,8 +143,8 @@ func main() {
 	for i := range files {
 		files[i].Data = load(fmt.Sprintf("books/%s", files[i].Name))
 	}
-	for i := range vectors {
-		fmt.Println(i, len(vectors[i]))
+	for i := range A {
+		fmt.Println(i, len(A[i]))
 	}
 
 	type Segment struct {
@@ -144,62 +157,65 @@ func main() {
 		segments := []*Vector[Segment]{}
 		input := []byte(*FlagPrompt)
 		length := len(input) + width
-		for range 1024 {
-			segment := Vector[Segment]{}
-			markov := [order]Markov{}
-			var val byte
-			for _, val = range input {
-				for i := range markov {
-					i = order - 1 - i
-					vector := vectors[i][markov[i]]
-					if vector != nil {
-						sum := float32(0.0)
-						for _, value := range vector {
-							sum += float32(value)
-						}
-						segment.Meta.Segment = append(segment.Meta.Segment, val)
-						segment.Vector = append(segment.Vector, float32(vector[val])/sum)
-						break
-					}
-				}
-				for i := range markov {
-					state := val
-					for ii, value := range markov[i][:i+1] {
-						markov[i][ii], state = state, value
-					}
-				}
-			}
-
-			for range width {
-				for i := range markov {
-					i = order - 1 - i
-					vector := vectors[i][markov[i]]
-					if vector != nil {
-						sum := float32(0.0)
-						for _, value := range vector {
-							sum += float32(value)
-						}
-						total, selection := float32(0.0), rng.Float32()
-						for i, value := range vector {
-							total += float32(value) / sum
-							if selection < total {
-								segment.Meta.Segment = append(segment.Meta.Segment, byte(i))
-								val = byte(i)
-								segment.Vector = append(segment.Vector, float32(value)/sum)
-								break
+		sets := [][order]map[Markov][]uint32{A, B}
+		for _, vectors := range sets {
+			for range 512 {
+				segment := Vector[Segment]{}
+				markov := [order]Markov{}
+				var val byte
+				for _, val = range input {
+					for i := range markov {
+						i = order - 1 - i
+						vector := vectors[i][markov[i]]
+						if vector != nil {
+							sum := float32(0.0)
+							for _, value := range vector {
+								sum += float32(value)
 							}
+							segment.Meta.Segment = append(segment.Meta.Segment, val)
+							segment.Vector = append(segment.Vector, float32(vector[val])/sum)
+							break
 						}
-						break
+					}
+					for i := range markov {
+						state := val
+						for ii, value := range markov[i][:i+1] {
+							markov[i][ii], state = state, value
+						}
 					}
 				}
-				for i := range markov {
-					state := val
-					for ii, value := range markov[i][:i+1] {
-						markov[i][ii], state = state, value
+
+				for range width {
+					for i := range markov {
+						i = order - 1 - i
+						vector := vectors[i][markov[i]]
+						if vector != nil {
+							sum := float32(0.0)
+							for _, value := range vector {
+								sum += float32(value)
+							}
+							total, selection := float32(0.0), rng.Float32()
+							for i, value := range vector {
+								total += float32(value) / sum
+								if selection < total {
+									segment.Meta.Segment = append(segment.Meta.Segment, byte(i))
+									val = byte(i)
+									segment.Vector = append(segment.Vector, float32(value)/sum)
+									break
+								}
+							}
+							break
+						}
+					}
+					for i := range markov {
+						state := val
+						for ii, value := range markov[i][:i+1] {
+							markov[i][ii], state = state, value
+						}
 					}
 				}
+				segments = append(segments, &segment)
 			}
-			segments = append(segments, &segment)
 		}
 
 		config := Config{
@@ -222,13 +238,44 @@ func main() {
 		for i := range segments[:10] {
 			fmt.Println(string(segments[i].Meta.Segment))
 		}
+
+		meta := make([][]float64, len(segments))
+		for i := range meta {
+			meta[i] = make([]float64, len(segments))
+		}
+		const k = 2
+		for i := 0; i < 33; i++ {
+			clusters, _, err := kmeans.Kmeans(int64(i+1), cov, k, kmeans.SquaredEuclideanDistance, -1)
+			if err != nil {
+				panic(err)
+			}
+			for i := 0; i < len(meta); i++ {
+				target := clusters[i]
+				for j, v := range clusters {
+					if v == target {
+						meta[i][j]++
+					}
+				}
+			}
+		}
+		clusters, _, err := kmeans.Kmeans(1, meta, k, kmeans.SquaredEuclideanDistance, -1)
+		if err != nil {
+			panic(err)
+		}
 		fmt.Println("---------------------------------------")
 
-		for i := range vectors {
-			vectors[i] = make(map[Markov][]uint32)
+		for i := range A {
+			A[i] = make(map[Markov][]uint32)
 		}
-		for i := range segments[:len(segments)/2] {
+		for i := range B {
+			B[i] = make(map[Markov][]uint32)
+		}
+		for i := range segments {
 			markov := [order]Markov{}
+			vectors := A
+			if clusters[i] == 1 {
+				vectors = B
+			}
 			for _, value := range segments[i].Meta.Segment {
 				for iii := range markov {
 					vector := vectors[iii][markov[iii]]
