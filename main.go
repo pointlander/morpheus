@@ -37,6 +37,43 @@ var (
 	cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
 )
 
+const (
+	order = 4
+)
+
+type Markov [order]byte
+type Model [order]map[Markov][]uint32
+
+// Lookup looks a vector up
+func Lookup(markov *[order]Markov, model *Model) []float32 {
+	for i := range markov {
+		i = order - 1 - i
+		vector := model[i][markov[i]]
+		if vector != nil {
+			sum := float32(0.0)
+			for _, value := range vector {
+				sum += float32(value)
+			}
+			result := make([]float32, len(vector))
+			for ii, value := range vector {
+				result[ii] = float32(value) / sum
+			}
+			return result
+		}
+	}
+	return nil
+}
+
+// Iterate iterates a markov model
+func Iterate(markov *[order]Markov, state byte) {
+	for i := range markov {
+		state := state
+		for ii, value := range markov[i][:i+1] {
+			markov[i][ii], state = state, value
+		}
+	}
+}
+
 func main() {
 	flag.Parse()
 
@@ -75,7 +112,6 @@ func main() {
 	const (
 		size     = 256
 		width    = 64
-		order    = 4
 		clusters = 4
 		samples  = 1024
 	)
@@ -96,8 +132,7 @@ func main() {
 		{Name: "3176.txt.utf-8.bz2"},
 	}
 
-	type Markov [order]byte
-	var sets [clusters][order]map[Markov][]uint32
+	var sets [clusters]Model
 	for i := range sets {
 		for ii := range sets[i] {
 			sets[i][ii] = make(map[Markov][]uint32)
@@ -161,55 +196,29 @@ func main() {
 				markov := [order]Markov{}
 				var val byte
 				for _, val = range input {
-					for i := range markov {
-						i = order - 1 - i
-						vector := vectors[i][markov[i]]
-						if vector != nil {
-							sum := float32(0.0)
-							for _, value := range vector {
-								sum += float32(value)
-							}
-							segment.Meta.Segment = append(segment.Meta.Segment, val)
-							segment.Vector = append(segment.Vector, float32(vector[val])/sum)
-							break
-						}
+					vector := Lookup(&markov, &vectors)
+					if vector != nil {
+						segment.Meta.Segment = append(segment.Meta.Segment, val)
+						segment.Vector = append(segment.Vector, vector[val])
 					}
-					for i := range markov {
-						state := val
-						for ii, value := range markov[i][:i+1] {
-							markov[i][ii], state = state, value
-						}
-					}
+					Iterate(&markov, val)
 				}
 
 				for range width {
-					for i := range markov {
-						i = order - 1 - i
-						vector := vectors[i][markov[i]]
-						if vector != nil {
-							sum := float32(0.0)
-							for _, value := range vector {
-								sum += float32(value)
+					vector := Lookup(&markov, &vectors)
+					if vector != nil {
+						total, selection := float32(0.0), rng.Float32()
+						for i, value := range vector {
+							total += value
+							if selection < total {
+								segment.Meta.Segment = append(segment.Meta.Segment, byte(i))
+								val = byte(i)
+								segment.Vector = append(segment.Vector, value)
+								break
 							}
-							total, selection := float32(0.0), rng.Float32()
-							for i, value := range vector {
-								total += float32(value) / sum
-								if selection < total {
-									segment.Meta.Segment = append(segment.Meta.Segment, byte(i))
-									val = byte(i)
-									segment.Vector = append(segment.Vector, float32(value)/sum)
-									break
-								}
-							}
-							break
 						}
 					}
-					for i := range markov {
-						state := val
-						for ii, value := range markov[i][:i+1] {
-							markov[i][ii], state = state, value
-						}
-					}
+					Iterate(&markov, val)
 				}
 				segments = append(segments, &segment)
 			}
@@ -300,7 +309,7 @@ func main() {
 		}
 	}
 
-	var set [order]map[Markov][]uint32
+	var set Model
 	for i := range set {
 		set[i] = make(map[Markov][]uint32)
 	}
@@ -324,55 +333,29 @@ func main() {
 	markov := [order]Markov{}
 	var val byte
 	for _, val = range input {
-		for i := range markov {
-			i = order - 1 - i
-			vector := set[i][markov[i]]
-			if vector != nil {
-				sum := float32(0.0)
-				for _, value := range vector {
-					sum += float32(value)
-				}
-				segment.Meta.Segment = append(segment.Meta.Segment, val)
-				segment.Vector = append(segment.Vector, float32(vector[val])/sum)
-				break
-			}
+		vector := Lookup(&markov, &set)
+		if vector != nil {
+			segment.Meta.Segment = append(segment.Meta.Segment, val)
+			segment.Vector = append(segment.Vector, vector[val])
 		}
-		for i := range markov {
-			state := val
-			for ii, value := range markov[i][:i+1] {
-				markov[i][ii], state = state, value
-			}
-		}
+		Iterate(&markov, val)
 	}
 
 	for range 8 * 1024 {
-		for i := range markov {
-			i = order - 1 - i
-			vector := set[i][markov[i]]
-			if vector != nil {
-				sum := float32(0.0)
-				for _, value := range vector {
-					sum += float32(value)
+		vector := Lookup(&markov, &set)
+		if vector != nil {
+			total, selection := float32(0.0), rng.Float32()
+			for i, value := range vector {
+				total += value
+				if selection < total {
+					segment.Meta.Segment = append(segment.Meta.Segment, byte(i))
+					val = byte(i)
+					segment.Vector = append(segment.Vector, value)
+					break
 				}
-				total, selection := float32(0.0), rng.Float32()
-				for i, value := range vector {
-					total += float32(value) / sum
-					if selection < total {
-						segment.Meta.Segment = append(segment.Meta.Segment, byte(i))
-						val = byte(i)
-						segment.Vector = append(segment.Vector, float32(value)/sum)
-						break
-					}
-				}
-				break
 			}
 		}
-		for i := range markov {
-			state := val
-			for ii, value := range markov[i][:i+1] {
-				markov[i][ii], state = state, value
-			}
-		}
+		Iterate(&markov, val)
 	}
 
 	fmt.Println(string(segment.Meta.Segment))
