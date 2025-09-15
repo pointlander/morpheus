@@ -74,7 +74,7 @@ func main() {
 
 	const (
 		size     = 256
-		width    = 33
+		width    = 64
 		order    = 4
 		clusters = 4
 		samples  = 1024
