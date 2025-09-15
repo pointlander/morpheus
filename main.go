@@ -132,6 +132,10 @@ func main() {
 		{Name: "3176.txt.utf-8.bz2"},
 	}
 
+	var books Model
+	for i := range books {
+		books[i] = make(map[Markov][]uint32)
+	}
 	var sets [clusters]Model
 	for i := range sets {
 		for ii := range sets[i] {
@@ -154,12 +158,12 @@ func main() {
 		for i, value := range data[:len(data)-6] {
 			i += 3
 			for ii := range markov {
-				vector := sets[0][ii][markov[ii]]
+				vector := books[ii][markov[ii]]
 				if vector == nil {
 					vector = make([]uint32, size)
 				}
 				vector[value]++
-				sets[0][ii][markov[ii]] = vector
+				books[ii][markov[ii]] = vector
 
 				state := value
 				for iii, value := range markov[ii][:ii+1] {
@@ -172,11 +176,11 @@ func main() {
 	for i := range files {
 		files[i].Data = load(fmt.Sprintf("books/%s", files[i].Name))
 	}
-	for i := range sets[0] {
-		fmt.Println(i, len(sets[0][i]))
+	for i := range books {
+		fmt.Println(i, len(books[i]))
 	}
 	for i := 1; i < len(sets); i++ {
-		sets[i] = sets[0]
+		sets[i] = books
 	}
 
 	type Segment struct {
@@ -206,14 +210,15 @@ func main() {
 
 				for range width {
 					vector := Lookup(&markov, &vectors)
+					book := Lookup(&markov, &books)
 					if vector != nil {
 						total, selection := float32(0.0), rng.Float32()
 						for i, value := range vector {
-							total += value
+							total += (value + book[i]) / 2
 							if selection < total {
 								segment.Meta.Segment = append(segment.Meta.Segment, byte(i))
 								val = byte(i)
-								segment.Vector = append(segment.Vector, value)
+								segment.Vector = append(segment.Vector, (value+book[i])/2)
 								break
 							}
 						}
