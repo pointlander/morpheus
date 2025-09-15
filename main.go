@@ -111,7 +111,7 @@ func main() {
 
 	const (
 		size     = 256
-		width    = 64
+		width    = 128
 		clusters = 4
 		samples  = 1024
 	)
@@ -195,7 +195,7 @@ func main() {
 		input := []byte(*FlagPrompt)
 		length := len(input) + width
 		for _, vectors := range sets {
-			for range 8 * samples {
+			for range 33 * samples {
 				segment := Vector[Segment]{}
 				markov := [order]Markov{}
 				var val byte
