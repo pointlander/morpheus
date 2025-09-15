@@ -156,7 +156,7 @@ func main() {
 		input := []byte(*FlagPrompt)
 		length := len(input) + width
 		for _, vectors := range sets {
-			for range samples {
+			for range 8 * samples {
 				segment := Vector[Segment]{}
 				markov := [order]Markov{}
 				var val byte
@@ -214,6 +214,16 @@ func main() {
 				segments = append(segments, &segment)
 			}
 		}
+
+		for i := range segments {
+			for _, value := range segments[i].Vector {
+				segments[i].Meta.Rank += float64(value)
+			}
+		}
+		sort.Slice(segments, func(i, j int) bool {
+			return segments[i].Meta.Rank > segments[j].Meta.Rank
+		})
+		segments = segments[:len(sets)*samples]
 
 		config := Config{
 			Iterations: 8,
