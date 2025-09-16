@@ -17,6 +17,7 @@ type Vector[T any] struct {
 	Vector []float32
 	Avg    float64
 	Stddev float64
+	Next   *Vector[T]
 }
 
 // Config is the configuration for the morpheus algorithm

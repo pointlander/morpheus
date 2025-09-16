@@ -191,11 +191,12 @@ func main() {
 
 	rng := rand.New(rand.NewSource(1))
 	for range 3 {
-		segments := []*Vector[Segment]{}
+		var list *Vector[Segment]
+		count := 0
 		input := []byte(*FlagPrompt)
 		length := len(input) + width
 		for _, vectors := range sets {
-			for range 33 * samples {
+			for range 128 * samples {
 				segment := Vector[Segment]{}
 				markov := [order]Markov{}
 				var val byte
@@ -225,19 +226,54 @@ func main() {
 					}
 					Iterate(&markov, val)
 				}
-				segments = append(segments, &segment)
+				for _, value := range segment.Vector {
+					segment.Meta.Rank += float64(value)
+				}
+				if list == nil {
+					list = &segment
+					count++
+					continue
+				}
+				iterator := list
+				var prev *Vector[Segment]
+				for iterator != nil {
+					if iterator.Meta.Rank < segment.Meta.Rank {
+						segment.Next = iterator
+						count++
+						if prev == nil {
+							list = &segment
+							break
+						}
+						prev.Next = &segment
+						break
+					}
+					prev = iterator
+					iterator = iterator.Next
+				}
+				if iterator == nil {
+					prev.Next = &segment
+					count++
+				}
+				if count > len(sets)*samples {
+					iterator := list
+					for iterator != nil && iterator.Next != nil && iterator.Next.Next != nil {
+						iterator = iterator.Next
+					}
+					iterator.Next = nil
+					count--
+				}
 			}
 		}
 
-		for i := range segments {
-			for _, value := range segments[i].Vector {
-				segments[i].Meta.Rank += float64(value)
-			}
+		segments := []*Vector[Segment]{}
+		iterator := list
+		for iterator != nil {
+			segments = append(segments, iterator)
+			iterator = iterator.Next
 		}
 		sort.Slice(segments, func(i, j int) bool {
 			return segments[i].Meta.Rank > segments[j].Meta.Rank
 		})
-		segments = segments[:len(sets)*samples]
 
 		config := Config{
 			Iterations: 8,
