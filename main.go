@@ -29,6 +29,8 @@ var (
 	FlagE = flag.Bool("e", false, "experiment")
 	// FlagTxt txt mode
 	FlagTxt = flag.Bool("txt", false, "txt mode")
+	// Flag3m markov mcts morpheus mode
+	Flag3m = flag.Bool("3m", false, "markov mcts morpheus mode")
 	// FlagLearn learn the vector database
 	FlagLearn = flag.Bool("learn", false, "learn the vector database")
 	// FlagPrompt the prompt to use
@@ -74,41 +76,8 @@ func Iterate(markov *[order]Markov, state byte) {
 	}
 }
 
-func main() {
-	flag.Parse()
-
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-		if err := pprof.StartCPUProfile(f); err != nil {
-			panic(err)
-		}
-		defer pprof.StopCPUProfile()
-	}
-
-	if *FlagIris {
-		IrisMode()
-		return
-	}
-
-	if *FlagClass {
-		ClassMode()
-		return
-	}
-
-	if *FlagText {
-		TextMode()
-		return
-	}
-
-	if *FlagTxt {
-		TxtMode()
-		return
-	}
-
+// 3mMode markov mcts morpheus mode
+func _3mMode() {
 	const (
 		size     = 256
 		width    = 256
@@ -409,4 +378,45 @@ func main() {
 		return segments[i].Meta.Rank > segments[j].Meta.Rank
 	})
 	fmt.Println(string(segments[0].Meta.Segment))
+}
+
+func main() {
+	flag.Parse()
+
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			panic(err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
+	if *FlagIris {
+		IrisMode()
+		return
+	}
+
+	if *FlagClass {
+		ClassMode()
+		return
+	}
+
+	if *FlagText {
+		TextMode()
+		return
+	}
+
+	if *FlagTxt {
+		TxtMode()
+		return
+	}
+
+	if *Flag3m {
+		_3mMode()
+		return
+	}
 }
