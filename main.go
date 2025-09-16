@@ -369,35 +369,44 @@ func main() {
 		}
 	}
 
-	input := []byte(*FlagPrompt)
-	segment := Vector[Segment]{}
-	markov := [order]Markov{}
-	var val byte
-	for _, val = range input {
-		vector := Lookup(&markov, &set)
-		if vector != nil {
-			segment.Meta.Segment = append(segment.Meta.Segment, val)
-			segment.Vector = append(segment.Vector, vector[val])
+	segments := []*Vector[Segment]{}
+	for range samples {
+		input := []byte(*FlagPrompt)
+		segment := Vector[Segment]{}
+		markov := [order]Markov{}
+		var val byte
+		for _, val = range input {
+			vector := Lookup(&markov, &set)
+			if vector != nil {
+				segment.Meta.Segment = append(segment.Meta.Segment, val)
+				segment.Vector = append(segment.Vector, vector[val])
+			}
+			Iterate(&markov, val)
 		}
-		Iterate(&markov, val)
-	}
 
-	for range 8 * 1024 {
-		vector := Lookup(&markov, &set)
-		if vector != nil {
-			total, selection := float32(0.0), rng.Float32()
-			for i, value := range vector {
-				total += value
-				if selection < total {
-					segment.Meta.Segment = append(segment.Meta.Segment, byte(i))
-					val = byte(i)
-					segment.Vector = append(segment.Vector, value)
-					break
+		for range samples {
+			vector := Lookup(&markov, &set)
+			if vector != nil {
+				total, selection := float32(0.0), rng.Float32()
+				for i, value := range vector {
+					total += value
+					if selection < total {
+						segment.Meta.Segment = append(segment.Meta.Segment, byte(i))
+						val = byte(i)
+						segment.Vector = append(segment.Vector, value)
+						break
+					}
 				}
 			}
+			Iterate(&markov, val)
 		}
-		Iterate(&markov, val)
+		for _, value := range segment.Vector {
+			segment.Meta.Rank += float64(value)
+		}
+		segments = append(segments, &segment)
 	}
-
-	fmt.Println(string(segment.Meta.Segment))
+	sort.Slice(segments, func(i, j int) bool {
+		return segments[i].Meta.Rank > segments[j].Meta.Rank
+	})
+	fmt.Println(string(segments[0].Meta.Segment))
 }
