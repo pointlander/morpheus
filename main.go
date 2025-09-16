@@ -111,7 +111,7 @@ func main() {
 
 	const (
 		size     = 256
-		width    = 128
+		width    = 256
 		clusters = 4
 		samples  = 1024
 	)
