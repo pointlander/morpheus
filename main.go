@@ -482,4 +482,34 @@ func main() {
 			fmt.Println(len(files[i].Model[ii]))
 		}
 	}
+
+	rng := rand.New(rand.NewSource(1))
+	max, result := float32(0.0), ""
+	for range 64 * 1024 {
+		markov, data := [order]Markov{}, []byte{}
+		for _, symbol := range []byte("What is the meaning of life?") {
+			Iterate(&markov, symbol)
+		}
+		sum := float32(0.0)
+		for range 1024 {
+			book := rng.Intn(len(files))
+			vector := Lookup(&markov, &files[book].Model)
+			if vector != nil {
+				total, selection := float32(0.0), rng.Float32()
+				for i, value := range vector {
+					total += value
+					if selection < total {
+						data = append(data, byte(i))
+						sum += value
+						Iterate(&markov, byte(i))
+						break
+					}
+				}
+			}
+		}
+		if sum > max {
+			max, result = sum, string(data)
+		}
+	}
+	fmt.Println(result)
 }
