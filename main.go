@@ -31,6 +31,8 @@ var (
 	FlagTxt = flag.Bool("txt", false, "txt mode")
 	// Flag3m markov mcts morpheus mode
 	Flag3m = flag.Bool("3m", false, "markov mcts morpheus mode")
+	// FlagExtreme extreme mode
+	FlagExtreme = flag.Bool("extreme", false, "extreme mode")
 	// FlagLearn learn the vector database
 	FlagLearn = flag.Bool("learn", false, "learn the vector database")
 	// FlagPrompt the prompt to use
@@ -380,46 +382,8 @@ func _3mMode() {
 	fmt.Println(string(segments[0].Meta.Segment))
 }
 
-func main() {
-	flag.Parse()
-
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-		if err := pprof.StartCPUProfile(f); err != nil {
-			panic(err)
-		}
-		defer pprof.StopCPUProfile()
-	}
-
-	if *FlagIris {
-		IrisMode()
-		return
-	}
-
-	if *FlagClass {
-		ClassMode()
-		return
-	}
-
-	if *FlagText {
-		TextMode()
-		return
-	}
-
-	if *FlagTxt {
-		TxtMode()
-		return
-	}
-
-	if *Flag3m {
-		_3mMode()
-		return
-	}
-
+// ExtremeMode extreme mode
+func ExtremeMode() {
 	const (
 		size = 256
 	)
@@ -512,4 +476,50 @@ func main() {
 		}
 	}
 	fmt.Println(result)
+}
+
+func main() {
+	flag.Parse()
+
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			panic(err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
+	if *FlagIris {
+		IrisMode()
+		return
+	}
+
+	if *FlagClass {
+		ClassMode()
+		return
+	}
+
+	if *FlagText {
+		TextMode()
+		return
+	}
+
+	if *FlagTxt {
+		TxtMode()
+		return
+	}
+
+	if *Flag3m {
+		_3mMode()
+		return
+	}
+
+	if *FlagExtreme {
+		ExtremeMode()
+		return
+	}
 }
