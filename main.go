@@ -5,6 +5,8 @@
 package main
 
 import (
+	"archive/zip"
+	"bufio"
 	"compress/bzip2"
 	"flag"
 	"fmt"
@@ -14,6 +16,8 @@ import (
 	"os"
 	"runtime/pprof"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/pointlander/morpheus/kmeans"
 )
@@ -521,5 +525,65 @@ func main() {
 	if *FlagExtreme {
 		ExtremeMode()
 		return
+	}
+
+	reader, err := zip.OpenReader("glove.2024.wikigiga.50d.zip")
+	if err != nil {
+		panic(err)
+	}
+	defer reader.Close()
+	input, err := reader.File[0].Open()
+	if err != nil {
+		panic(err)
+	}
+	defer input.Close()
+	scanner := bufio.NewScanner(input)
+	type Line struct {
+		Word string
+	}
+	words := make([]*Vector[Line], 0, 8)
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Split(line, " ")
+		word := Vector[Line]{
+			Meta: Line{
+				Word: strings.TrimSpace(parts[0]),
+			},
+			Vector: make([]float32, 50),
+		}
+		for i, part := range parts[1:] {
+			value, err := strconv.ParseFloat(strings.TrimSpace(part), 32)
+			if err != nil {
+				panic(err)
+			}
+			word.Vector[i] = float32(value)
+		}
+		words = append(words, &word)
+	}
+	index := make(map[string]*Vector[Line], len(words))
+	for i := range words {
+		index[words[i].Meta.Word] = words[i]
+	}
+
+	samples := []string{"true", "false", "god"}
+	tests := make([]*Vector[Line], len(samples))
+	for i := range samples {
+		tests[i] = index[samples[i]]
+	}
+	config := Config{
+		Iterations: 33,
+		Size:       50,
+		Divider:    1,
+	}
+	cov := Morpheus(1, config, tests)
+	_ = cov
+	for i := range tests {
+		fmt.Println(tests[i].Stddev, tests[i].Meta.Word)
+	}
+	for i := 0; i < len(tests); i++ {
+		for ii := 0; ii < len(tests); ii++ {
+			fmt.Printf("%.8f ", cov[i][ii])
+		}
+		fmt.Println()
 	}
 }
