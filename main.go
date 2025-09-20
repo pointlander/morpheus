@@ -566,31 +566,39 @@ func main() {
 		index[words[i].Meta.Word] = words[i]
 	}
 
-	samples := []string{"true", "false", "god"}
-	tests := make([]*Vector[Line], len(samples))
-	for i := range samples {
-		tests[i] = index[samples[i]]
+	selection := []string{"true", "false", "god"}
+	vectors := make([]*Vector[Line], len(selection))
+	for i := range vectors {
+		vectors[i] = index[selection[i]]
 	}
+
 	config := Config{
 		Iterations: 33,
 		Size:       50,
 		Divider:    1,
 	}
-	cov := Morpheus(1, config, tests)
-	_ = cov
-	for i := range tests {
-		fmt.Println(tests[i].Stddev, tests[i].Meta.Word)
+	fmt.Println("standard deviation")
+	cov := Morpheus(1, config, vectors)
+	for i := range vectors {
+		fmt.Println(vectors[i].Stddev, vectors[i].Meta.Word)
 	}
-	for i := 0; i < len(tests); i++ {
-		for ii := 0; ii < len(tests); ii++ {
+	fmt.Println("cov")
+	for i := range vectors {
+		for ii := range vectors {
 			fmt.Printf("%.8f ", cov[i][ii])
 		}
 		fmt.Println()
 	}
-
-	meta := make([][]float64, len(tests))
+	fmt.Println("correlation")
+	for i := range vectors {
+		for ii := range vectors {
+			fmt.Printf("%.8f ", cov[i][ii]/(vectors[i].Stddev*vectors[ii].Stddev))
+		}
+		fmt.Println()
+	}
+	meta := make([][]float64, len(vectors))
 	for i := range meta {
-		meta[i] = make([]float64, len(tests))
+		meta[i] = make([]float64, len(vectors))
 	}
 	const k = 2
 	for i := 0; i < 33; i++ {
@@ -611,10 +619,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	for i := range tests {
-		tests[i].Meta.Cluster = clusters[i]
+	for i := range vectors {
+		vectors[i].Meta.Cluster = clusters[i]
 	}
-	for i := range tests {
-		fmt.Println(tests[i].Meta.Cluster, tests[i].Meta.Word)
+	fmt.Println("clustering")
+	for i := range vectors {
+		fmt.Println(vectors[i].Meta.Cluster, vectors[i].Meta.Word)
 	}
 }
