@@ -566,7 +566,8 @@ func main() {
 		index[words[i].Meta.Word] = words[i]
 	}
 
-	selection := []string{"true", "false", "god"}
+	selection := []string{"true", "false", "god", "jesus", "faith",
+		"truth", "atheism", "philosophy", "lord", "savior"}
 	vectors := make([]*Vector[Line], len(selection))
 	for i := range vectors {
 		vectors[i] = index[selection[i]]
