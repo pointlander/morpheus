@@ -572,6 +572,17 @@ func main() {
 		vectors[i] = index[selection[i]]
 	}
 
+	fmt.Println("cosine similarity")
+	for i := range vectors {
+		a := NewMatrix(50, 1, vectors[i].Vector...)
+		for ii := range vectors {
+			b := NewMatrix(50, 1, vectors[ii].Vector...)
+			cs := a.CS(b)
+			fmt.Printf("%.8f ", cs)
+		}
+		fmt.Println()
+	}
+
 	config := Config{
 		Iterations: 33,
 		Size:       50,
