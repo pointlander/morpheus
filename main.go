@@ -539,7 +539,8 @@ func main() {
 	defer input.Close()
 	scanner := bufio.NewScanner(input)
 	type Line struct {
-		Word string
+		Word    string
+		Cluster int
 	}
 	words := make([]*Vector[Line], 0, 8)
 	for scanner.Scan() {
@@ -585,5 +586,35 @@ func main() {
 			fmt.Printf("%.8f ", cov[i][ii])
 		}
 		fmt.Println()
+	}
+
+	meta := make([][]float64, len(tests))
+	for i := range meta {
+		meta[i] = make([]float64, len(tests))
+	}
+	const k = 2
+	for i := 0; i < 33; i++ {
+		clusters, _, err := kmeans.Kmeans(int64(i+1), cov, k, kmeans.SquaredEuclideanDistance, -1)
+		if err != nil {
+			panic(err)
+		}
+		for i := 0; i < len(meta); i++ {
+			target := clusters[i]
+			for j, v := range clusters {
+				if v == target {
+					meta[i][j]++
+				}
+			}
+		}
+	}
+	clusters, _, err := kmeans.Kmeans(1, meta, k, kmeans.SquaredEuclideanDistance, -1)
+	if err != nil {
+		panic(err)
+	}
+	for i := range tests {
+		tests[i].Meta.Cluster = clusters[i]
+	}
+	for i := range tests {
+		fmt.Println(tests[i].Meta.Cluster, tests[i].Meta.Word)
 	}
 }
