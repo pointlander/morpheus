@@ -14,6 +14,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"regexp"
 	"runtime/pprof"
 	"sort"
 	"strconv"
@@ -527,6 +528,72 @@ func main() {
 		return
 	}
 
+	type File struct {
+		Name string
+		Data []byte
+	}
+
+	files := []File{
+		{Name: "pg74.txt.bz2"},
+		{Name: "10.txt.utf-8.bz2"},
+		{Name: "76.txt.utf-8.bz2"},
+		{Name: "84.txt.utf-8.bz2"},
+		{Name: "100.txt.utf-8.bz2"},
+		{Name: "1837.txt.utf-8.bz2"},
+		{Name: "2701.txt.utf-8.bz2"},
+		{Name: "3176.txt.utf-8.bz2"},
+	}
+	load := func(book string) []byte {
+		file, err := Text.Open(book)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+		breader := bzip2.NewReader(file)
+		data, err := io.ReadAll(breader)
+		if err != nil {
+			panic(err)
+		}
+		return data
+	}
+	for i := range files {
+		files[i].Data = load(fmt.Sprintf("books/%s", files[i].Name))
+	}
+
+	bible := string(files[1].Data)
+	reg := regexp.MustCompile(`\s+`)
+	parts := reg.Split(bible, -1)
+	reg = regexp.MustCompile(`[\p{P}]+`)
+	unique := make(map[string]int)
+	for _, part := range parts {
+		part = reg.ReplaceAllString(part, "")
+		_, err := strconv.Atoi(part)
+		if err == nil {
+			continue
+		}
+		count := unique[strings.ToLower(part)]
+		count++
+		unique[strings.ToLower(part)] = count
+	}
+	type Pair struct {
+		Word  string
+		Count int
+	}
+	pairs := make([]Pair, len(unique))
+	c := 0
+	for word, count := range unique {
+		pairs[c].Word = word
+		pairs[c].Count = count
+		c++
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].Count > pairs[j].Count
+	})
+	fmt.Println(len(pairs))
+	for i := range pairs[:1024] {
+		fmt.Println(pairs[i].Count, pairs[i].Word)
+	}
+
 	reader, err := zip.OpenReader("glove.2024.wikigiga.50d.zip")
 	if err != nil {
 		panic(err)
@@ -567,7 +634,7 @@ func main() {
 	}
 
 	selection := []string{"true", "false", "god", "jesus", "faith",
-		"truth", "atheism", "philosophy", "lord", "savior"}
+		"truth", "atheism", "philosophy", "lord", "savior", "good", "evil"}
 	vectors := make([]*Vector[Line], len(selection))
 	for i := range vectors {
 		vectors[i] = index[selection[i]]
