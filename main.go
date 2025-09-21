@@ -633,11 +633,15 @@ func main() {
 		index[words[i].Meta.Word] = words[i]
 	}
 
-	selection := []string{"true", "false", "god", "jesus", "faith",
-		"truth", "atheism", "philosophy", "lord", "savior", "good", "evil"}
-	vectors := make([]*Vector[Line], len(selection))
-	for i := range vectors {
-		vectors[i] = index[selection[i]]
+	//selection := []string{"true", "false", "god", "jesus", "faith",
+	//"truth", "atheism", "philosophy", "lord", "savior", "good", "evil"}
+	pairs = pairs[:1024]
+	vectors := make([]*Vector[Line], 0, len(pairs))
+	for i := range pairs {
+		vector := index[pairs[i].Word]
+		if vector != nil {
+			vectors = append(vectors, vector)
+		}
 	}
 
 	fmt.Println("cosine similarity")
@@ -646,15 +650,16 @@ func main() {
 		for ii := range vectors {
 			b := NewMatrix(50, 1, vectors[ii].Vector...)
 			cs := a.CS(b)
-			fmt.Printf("%.8f ", cs)
+			_ = cs
+			//fmt.Printf("%.8f ", cs)
 		}
-		fmt.Println()
+		//fmt.Println()
 	}
 
 	config := Config{
-		Iterations: 33,
+		Iterations: 8,
 		Size:       50,
-		Divider:    1,
+		Divider:    0,
 	}
 	fmt.Println("standard deviation")
 	cov := Morpheus(1, config, vectors)
@@ -662,19 +667,19 @@ func main() {
 		fmt.Println(vectors[i].Stddev, vectors[i].Meta.Word)
 	}
 	fmt.Println("cov")
-	for i := range vectors {
+	/*for i := range vectors {
 		for ii := range vectors {
 			fmt.Printf("%.8f ", cov[i][ii])
 		}
 		fmt.Println()
-	}
+	}*/
 	fmt.Println("correlation")
-	for i := range vectors {
+	/*for i := range vectors {
 		for ii := range vectors {
 			fmt.Printf("%.8f ", cov[i][ii]/(vectors[i].Stddev*vectors[ii].Stddev))
 		}
 		fmt.Println()
-	}
+	}*/
 	meta := make([][]float64, len(vectors))
 	for i := range meta {
 		meta[i] = make([]float64, len(vectors))
