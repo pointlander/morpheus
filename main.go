@@ -692,7 +692,6 @@ func main() {
 			if cs > max && words[i].Meta.Word != "jesus" {
 				max, found = cs, i
 			}
-			fmt.Println(words[i].Stddev, words[i].Meta.Word)
 		}
 		fmt.Println("cov")
 		fmt.Println(words[found].Meta.Word)
@@ -736,8 +735,11 @@ func main() {
 	for i := range words {
 		words[i].Meta.Cluster = clusters[i]
 	}
+	sort.Slice(words, func(i, j int) bool {
+		return words[i].Stddev < words[j].Stddev
+	})
 	fmt.Println("clustering")
 	for i := range words {
-		fmt.Println(words[i].Meta.Cluster, words[i].Meta.Word)
+		fmt.Println(words[i].Stddev, words[i].Meta.Cluster, words[i].Meta.Word)
 	}
 }
