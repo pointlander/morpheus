@@ -560,11 +560,17 @@ func main() {
 		files[i].Data = load(fmt.Sprintf("books/%s", files[i].Name))
 	}
 
+	type Line struct {
+		Word    string
+		Cluster int
+		Count   int
+	}
+
 	bible := string(files[1].Data)
 	reg := regexp.MustCompile(`\s+`)
 	parts := reg.Split(bible, -1)
 	reg = regexp.MustCompile(`[\p{P}]+`)
-	unique := make(map[string]int)
+	unique := make(map[string]*Vector[Line])
 	for _, part := range parts {
 		part = reg.ReplaceAllString(part, "")
 		_, err := strconv.Atoi(part)
@@ -572,26 +578,30 @@ func main() {
 			continue
 		}
 		count := unique[strings.ToLower(part)]
-		count++
+		if count == nil {
+			count = &Vector[Line]{
+				Meta: Line{
+					Word: strings.ToLower(part),
+				},
+			}
+		}
+		count.Meta.Count++
 		unique[strings.ToLower(part)] = count
 	}
-	type Pair struct {
-		Word  string
-		Count int
+	words := make([]*Vector[Line], len(unique))
+	{
+		count := 0
+		for _, word := range unique {
+			words[count] = word
+			count++
+		}
 	}
-	pairs := make([]Pair, len(unique))
-	c := 0
-	for word, count := range unique {
-		pairs[c].Word = word
-		pairs[c].Count = count
-		c++
-	}
-	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].Count > pairs[j].Count
+	sort.Slice(words, func(i, j int) bool {
+		return words[i].Meta.Count > words[j].Meta.Count
 	})
-	fmt.Println(len(pairs))
-	for i := range pairs[:1024] {
-		fmt.Println(pairs[i].Count, pairs[i].Word)
+	fmt.Println(len(words))
+	for i := range words[:1024] {
+		fmt.Println(words[i].Meta.Count, words[i].Meta.Word)
 	}
 
 	reader, err := zip.OpenReader("glove.2024.wikigiga.50d.zip")
@@ -605,11 +615,8 @@ func main() {
 	}
 	defer input.Close()
 	scanner := bufio.NewScanner(input)
-	type Line struct {
-		Word    string
-		Cluster int
-	}
-	words := make([]*Vector[Line], 0, 8)
+
+	index := make(map[string]*Vector[Line])
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.Split(line, " ")
@@ -626,35 +633,47 @@ func main() {
 			}
 			word.Vector[i] = float32(value)
 		}
-		words = append(words, &word)
+		index[word.Meta.Word] = &word
 	}
-	index := make(map[string]*Vector[Line], len(words))
+
 	for i := range words {
-		index[words[i].Meta.Word] = words[i]
+		vector := index[words[i].Meta.Word]
+		if vector != nil {
+			words[i].Vector = vector.Vector
+		}
 	}
+	clean := make([]*Vector[Line], 0, 8)
+	for i := range words {
+		if words[i].Vector != nil {
+			clean = append(clean, words[i])
+		}
+	}
+	words = clean
 
 	//selection := []string{"true", "false", "god", "jesus", "faith",
 	//"truth", "atheism", "philosophy", "lord", "savior", "good", "evil"}
-	pairs = pairs[:1024]
-	vectors := make([]*Vector[Line], 0, len(pairs))
-	for i := range pairs {
-		vector := index[pairs[i].Word]
+	var jesus int
+	for i := range words {
+		vector := index[words[i].Meta.Word]
 		if vector != nil {
-			vectors = append(vectors, vector)
+			if vector.Meta.Word == "jesus" {
+				jesus = i
+				fmt.Println("found jesus")
+			}
 		}
 	}
 
 	fmt.Println("cosine similarity")
-	for i := range vectors {
-		a := NewMatrix(50, 1, vectors[i].Vector...)
-		for ii := range vectors {
-			b := NewMatrix(50, 1, vectors[ii].Vector...)
-			cs := a.CS(b)
-			_ = cs
-			//fmt.Printf("%.8f ", cs)
+	j := NewMatrix(50, 1, words[jesus].Vector...)
+	max, found := float32(0.0), 0
+	for i := range words {
+		a := NewMatrix(50, 1, words[i].Vector...)
+		cs := j.CS(a)
+		if cs > max && words[i].Meta.Word != "jesus" {
+			max, found = cs, i
 		}
-		//fmt.Println()
 	}
+	fmt.Println(words[found].Meta.Word)
 
 	config := Config{
 		Iterations: 8,
@@ -662,11 +681,22 @@ func main() {
 		Divider:    0,
 	}
 	fmt.Println("standard deviation")
-	cov := Morpheus(1, config, vectors)
-	for i := range vectors {
-		fmt.Println(vectors[i].Stddev, vectors[i].Meta.Word)
+	words = words[:1024]
+	cov := Morpheus(1, config, words)
+	{
+		jesus := NewMatrix(len(cov[jesus]), 1, cov[jesus]...)
+		max, found := 0.0, 0
+		for i := range words {
+			a := NewMatrix(len(cov[i]), 1, cov[i]...)
+			cs := jesus.CS(a)
+			if cs > max && words[i].Meta.Word != "jesus" {
+				max, found = cs, i
+			}
+			fmt.Println(words[i].Stddev, words[i].Meta.Word)
+		}
+		fmt.Println("cov")
+		fmt.Println(words[found].Meta.Word)
 	}
-	fmt.Println("cov")
 	/*for i := range vectors {
 		for ii := range vectors {
 			fmt.Printf("%.8f ", cov[i][ii])
@@ -680,9 +710,9 @@ func main() {
 		}
 		fmt.Println()
 	}*/
-	meta := make([][]float64, len(vectors))
+	meta := make([][]float64, len(words))
 	for i := range meta {
-		meta[i] = make([]float64, len(vectors))
+		meta[i] = make([]float64, len(words))
 	}
 	const k = 2
 	for i := 0; i < 33; i++ {
@@ -703,11 +733,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	for i := range vectors {
-		vectors[i].Meta.Cluster = clusters[i]
+	for i := range words {
+		words[i].Meta.Cluster = clusters[i]
 	}
 	fmt.Println("clustering")
-	for i := range vectors {
-		fmt.Println(vectors[i].Meta.Cluster, vectors[i].Meta.Word)
+	for i := range words {
+		fmt.Println(words[i].Meta.Cluster, words[i].Meta.Word)
 	}
 }
