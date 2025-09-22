@@ -600,9 +600,6 @@ func main() {
 		return words[i].Meta.Count > words[j].Meta.Count
 	})
 	fmt.Println(len(words))
-	for i := range words[:1024] {
-		fmt.Println(words[i].Meta.Count, words[i].Meta.Word)
-	}
 
 	reader, err := zip.OpenReader("glove.2024.wikigiga.50d.zip")
 	if err != nil {
@@ -650,65 +647,14 @@ func main() {
 	}
 	words = clean
 
-	//selection := []string{"true", "false", "god", "jesus", "faith",
-	//"truth", "atheism", "philosophy", "lord", "savior", "good", "evil"}
-	var jesus int
-	for i := range words {
-		vector := index[words[i].Meta.Word]
-		if vector != nil {
-			if vector.Meta.Word == "jesus" {
-				jesus = i
-				fmt.Println("found jesus")
-			}
-		}
-	}
-
-	fmt.Println("cosine similarity")
-	j := NewMatrix(50, 1, words[jesus].Vector...)
-	max, found := float32(0.0), 0
-	for i := range words {
-		a := NewMatrix(50, 1, words[i].Vector...)
-		cs := j.CS(a)
-		if cs > max && words[i].Meta.Word != "jesus" {
-			max, found = cs, i
-		}
-	}
-	fmt.Println(words[found].Meta.Word)
-
 	config := Config{
 		Iterations: 8,
 		Size:       50,
 		Divider:    0,
 	}
-	fmt.Println("standard deviation")
 	words = words[:1024]
 	cov := Morpheus(1, config, words)
-	{
-		jesus := NewMatrix(len(cov[jesus]), 1, cov[jesus]...)
-		max, found := 0.0, 0
-		for i := range words {
-			a := NewMatrix(len(cov[i]), 1, cov[i]...)
-			cs := jesus.CS(a)
-			if cs > max && words[i].Meta.Word != "jesus" {
-				max, found = cs, i
-			}
-		}
-		fmt.Println("cov")
-		fmt.Println(words[found].Meta.Word)
-	}
-	/*for i := range vectors {
-		for ii := range vectors {
-			fmt.Printf("%.8f ", cov[i][ii])
-		}
-		fmt.Println()
-	}*/
-	fmt.Println("correlation")
-	/*for i := range vectors {
-		for ii := range vectors {
-			fmt.Printf("%.8f ", cov[i][ii]/(vectors[i].Stddev*vectors[ii].Stddev))
-		}
-		fmt.Println()
-	}*/
+
 	meta := make([][]float64, len(words))
 	for i := range meta {
 		meta[i] = make([]float64, len(words))
@@ -738,8 +684,36 @@ func main() {
 	sort.Slice(words, func(i, j int) bool {
 		return words[i].Stddev < words[j].Stddev
 	})
-	fmt.Println("clustering")
-	for i := range words {
-		fmt.Println(words[i].Stddev, words[i].Meta.Cluster, words[i].Meta.Word)
+
+	output, err := os.Create("report.html")
+	if err != nil {
+		panic(err)
 	}
+	defer output.Close()
+	fmt.Fprintln(output, `<style>
+  table, th, td {
+    border: 1px solid black;
+    border-collapse: collapse; /* Collapses borders into a single border */
+  }
+  th, td {
+    padding: 8px; /* Add padding to cells for better readability */
+    text-align: left;
+  }
+</style>`)
+	fmt.Fprintf(output, "<table>\n")
+	fmt.Fprintf(output, " <tr>\n")
+	fmt.Fprintf(output, "  <th>Word</th>\n")
+	fmt.Fprintf(output, "  <th>Count</th>\n")
+	fmt.Fprintf(output, "  <th>Cluster</th>\n")
+	fmt.Fprintf(output, "  <th>Standard Deviation</th>\n")
+	fmt.Fprintf(output, " </tr>\n")
+	for i := range words {
+		fmt.Fprintf(output, " <tr>\n")
+		fmt.Fprintf(output, "  <td>%s</td>\n", words[i].Meta.Word)
+		fmt.Fprintf(output, "  <td>%d</td>\n", words[i].Meta.Count)
+		fmt.Fprintf(output, "  <td>%d</td>\n", words[i].Meta.Cluster)
+		fmt.Fprintf(output, "  <td>%.8f</td>\n", words[i].Stddev)
+		fmt.Fprintf(output, " </tr>\n")
+	}
+	fmt.Fprintf(output, "</table>\n")
 }
