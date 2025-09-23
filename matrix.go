@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
 	"os"
 	"runtime"
 	"sync/atomic"
@@ -451,7 +450,21 @@ func SelfAttention[T Float](Q, K, V Matrix[T]) Matrix[T] {
 	return o
 }
 
-func PageRank[T Float](seed int64, adj Matrix[T]) Matrix[T] {
+// RNG is a random number generator
+type RNG uint32
+
+// LFSRMask is a LFSR mask with a maximum period
+const LFSRMask = 0x80000057
+
+// Next returns the next random number
+func (r *RNG) Next() uint32 {
+	lfsr := *r
+	lfsr = (lfsr >> 1) ^ (-(lfsr & 1) & LFSRMask)
+	*r = lfsr
+	return uint32(lfsr)
+}
+
+func PageRank[T Float](seed uint32, adj Matrix[T]) Matrix[T] {
 	for i := range adj.Rows {
 		var sum T
 		for ii := range adj.Cols {
@@ -461,15 +474,15 @@ func PageRank[T Float](seed int64, adj Matrix[T]) Matrix[T] {
 			adj.Data[i*adj.Cols+ii] /= sum
 		}
 	}
-	rng := rand.New(rand.NewSource(seed))
+	rng := RNG(seed)
 	counts := make([]uint64, adj.Cols)
-	const sets = 8
+	const sets = 16
 	iterations := adj.Rows * adj.Cols
 	done := make(chan bool, 8)
-	process := func(seed int64) {
-		rng, node := rand.New(rand.NewSource(seed)), 0
+	process := func(seed uint32) {
+		rng, node := RNG(seed), 0
 		for range iterations {
-			total, selected, found := T(0.0), T(rng.Float64()), false
+			total, selected, found := T(0.0), T(rng.Next())/T(math.MaxUint32), false
 			for i, weight := range adj.Data[node*adj.Cols : (node+1)*adj.Cols] {
 				total += weight
 				if selected < total {
@@ -478,7 +491,7 @@ func PageRank[T Float](seed int64, adj Matrix[T]) Matrix[T] {
 				}
 			}
 			if !found {
-				node = rng.Intn(adj.Cols)
+				node = int(rng.Next() % uint32(adj.Cols))
 			}
 			counter := &counts[node]
 			atomic.AddUint64(counter, 1)
@@ -488,7 +501,7 @@ func PageRank[T Float](seed int64, adj Matrix[T]) Matrix[T] {
 
 	index, flights, cpus := 0, 0, runtime.NumCPU()
 	for index < sets && flights < cpus {
-		go process(rng.Int63())
+		go process(rng.Next())
 		index++
 		flights++
 	}
@@ -496,7 +509,7 @@ func PageRank[T Float](seed int64, adj Matrix[T]) Matrix[T] {
 		<-done
 		flights--
 
-		go process(rng.Int63())
+		go process(rng.Next())
 		index++
 		flights++
 	}
