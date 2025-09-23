@@ -58,14 +58,15 @@ func BenchmarkMorpheus(b *testing.B) {
 }
 
 func BenchmarkPageRank(b *testing.B) {
+	rng := rand.New(rand.NewSource(1))
 	for b.Loop() {
 		graph := pagerank.NewGraph()
 
-		graph.Link(1, 2, 1.0)
-		graph.Link(1, 3, 2.0)
-		graph.Link(2, 3, 3.0)
-		graph.Link(2, 4, 4.0)
-		graph.Link(3, 1, 5.0)
+		for i := range 1024 {
+			for j := range 1024 {
+				graph.Link(uint32(i), uint32(j), rng.Float64())
+			}
+		}
 
 		graph.Rank(0.85, 0.001, func(node uint32, rank float64) {
 
@@ -74,13 +75,14 @@ func BenchmarkPageRank(b *testing.B) {
 }
 
 func BenchmarkPageRankFast(b *testing.B) {
+	rng := rand.New(rand.NewSource(1))
 	for b.Loop() {
-		adj := NewMatrix(4, 4, make([]float64, 4*4)...)
-		adj.Data[0*4+2] = 1.0
-		adj.Data[0*4+2] = 2.0
-		adj.Data[1*4+2] = 3.0
-		adj.Data[1*4+3] = 4.0
-		adj.Data[2*4+0] = 5.0
+		adj := NewMatrix(1024, 1024, make([]float64, 1024*1024)...)
+		for i := range 1024 {
+			for j := range 1024 {
+				adj.Data[i*1024+j] = rng.Float64()
+			}
+		}
 		PageRank(.85, 1, adj)
 	}
 }
