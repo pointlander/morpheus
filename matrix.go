@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/rand"
 	"os"
 
 	"github.com/pointlander/morpheus/vector"
@@ -446,6 +447,41 @@ func SelfAttention[T Float](Q, K, V Matrix[T]) Matrix[T] {
 		o.Data = append(o.Data, outputs...)
 	}
 	return o
+}
+
+func PageRank[T Float](seed int64, adj Matrix[T]) Matrix[T] {
+	for i := range adj.Rows {
+		var sum T
+		for ii := range adj.Cols {
+			sum += adj.Data[i*adj.Cols+ii]
+		}
+		for ii := range adj.Cols {
+			adj.Data[i*adj.Cols+ii] /= sum
+		}
+	}
+	rng := rand.New(rand.NewSource(seed))
+	counts := make([]uint64, adj.Cols)
+	iterations := 33 * adj.Rows * adj.Cols
+	node := 0
+	for range iterations {
+		total, selected, found := T(0.0), T(rng.Float64()), false
+		for i, weight := range adj.Data[node*adj.Cols : (node+1)*adj.Cols] {
+			total += weight
+			if selected < total {
+				node, found = i, true
+				break
+			}
+		}
+		if !found {
+			node = rng.Intn(adj.Cols)
+		}
+		counts[node]++
+	}
+	p := NewMatrix[T](len(counts), 1)
+	for _, value := range counts {
+		p.Data = append(p.Data, T(value)/T(iterations))
+	}
+	return p
 }
 
 // Transformer implements transform inference

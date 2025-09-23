@@ -7,7 +7,34 @@ package main
 import (
 	"math/rand"
 	"testing"
+
+	"github.com/alixaxel/pagerank"
 )
+
+func TestPageRank(t *testing.T) {
+	graph := pagerank.NewGraph()
+
+	graph.Link(1, 2, 1.0)
+	graph.Link(1, 3, 2.0)
+	graph.Link(2, 3, 3.0)
+	graph.Link(2, 4, 4.0)
+	graph.Link(3, 1, 5.0)
+
+	nodes := make([]float64, 4)
+	graph.Rank(0.85, 0.000001, func(node uint32, rank float64) {
+		nodes[node-1] = rank
+	})
+	t.Log(nodes)
+
+	adj := NewMatrix(4, 4, make([]float64, 4*4)...)
+	adj.Data[0*4+1] = 1.0
+	adj.Data[0*4+2] = 2.0
+	adj.Data[1*4+2] = 3.0
+	adj.Data[1*4+3] = 4.0
+	adj.Data[2*4+0] = 5.0
+	p := PageRank(1, adj)
+	t.Log(p.Data)
+}
 
 func BenchmarkMorpheus(b *testing.B) {
 	rng := rand.New(rand.NewSource(1))
@@ -27,5 +54,33 @@ func BenchmarkMorpheus(b *testing.B) {
 	}
 	for b.Loop() {
 		Morpheus(rng.Int63(), config, vectors)
+	}
+}
+
+func BenchmarkPageRank(b *testing.B) {
+	for b.Loop() {
+		graph := pagerank.NewGraph()
+
+		graph.Link(1, 2, 1.0)
+		graph.Link(1, 3, 2.0)
+		graph.Link(2, 3, 3.0)
+		graph.Link(2, 4, 4.0)
+		graph.Link(3, 1, 5.0)
+
+		graph.Rank(0.85, 0.000001, func(node uint32, rank float64) {
+
+		})
+	}
+}
+
+func BenchmarkPageRankFast(b *testing.B) {
+	for b.Loop() {
+		adj := NewMatrix(4, 4, make([]float64, 4*4)...)
+		adj.Data[0*4+2] = 1.0
+		adj.Data[0*4+2] = 2.0
+		adj.Data[1*4+2] = 3.0
+		adj.Data[1*4+3] = 4.0
+		adj.Data[2*4+0] = 5.0
+		PageRank(1, adj)
 	}
 }
