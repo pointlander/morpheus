@@ -11,6 +11,8 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"runtime"
+	"sync/atomic"
 
 	"github.com/pointlander/morpheus/vector"
 )
@@ -461,25 +463,50 @@ func PageRank[T Float](seed int64, adj Matrix[T]) Matrix[T] {
 	}
 	rng := rand.New(rand.NewSource(seed))
 	counts := make([]uint64, adj.Cols)
-	iterations := 33 * adj.Rows * adj.Cols
-	node := 0
-	for range iterations {
-		total, selected, found := T(0.0), T(rng.Float64()), false
-		for i, weight := range adj.Data[node*adj.Cols : (node+1)*adj.Cols] {
-			total += weight
-			if selected < total {
-				node, found = i, true
-				break
+	const sets = 8
+	iterations := adj.Rows * adj.Cols
+	done := make(chan bool, 8)
+	process := func(seed int64) {
+		rng, node := rand.New(rand.NewSource(seed)), 0
+		for range iterations {
+			total, selected, found := T(0.0), T(rng.Float64()), false
+			for i, weight := range adj.Data[node*adj.Cols : (node+1)*adj.Cols] {
+				total += weight
+				if selected < total {
+					node, found = i, true
+					break
+				}
 			}
+			if !found {
+				node = rng.Intn(adj.Cols)
+			}
+			counter := &counts[node]
+			atomic.AddUint64(counter, 1)
 		}
-		if !found {
-			node = rng.Intn(adj.Cols)
-		}
-		counts[node]++
+		done <- true
 	}
+
+	index, flights, cpus := 0, 0, runtime.NumCPU()
+	for index < sets && flights < cpus {
+		go process(rng.Int63())
+		index++
+		flights++
+	}
+	for index < sets {
+		<-done
+		flights--
+
+		go process(rng.Int63())
+		index++
+		flights++
+	}
+	for range flights {
+		<-done
+	}
+
 	p := NewMatrix[T](len(counts), 1)
 	for _, value := range counts {
-		p.Data = append(p.Data, T(value)/T(iterations))
+		p.Data = append(p.Data, T(value)/T(sets*iterations))
 	}
 	return p
 }
