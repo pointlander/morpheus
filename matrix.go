@@ -464,7 +464,22 @@ func (r *RNG) Next() uint32 {
 	return uint32(lfsr)
 }
 
-func PageRank[T Float](seed uint32, adj Matrix[T]) Matrix[T] {
+// Float32 returns a uniform float32
+func (r *RNG) Float32() float32 {
+	return float32(r.Next()) / float32(math.MaxUint32)
+}
+
+// Intn return a uniform random number less than n
+func (r *RNG) Intn(n int) int {
+	max := uint32((1 << 32) - 1 - (1<<32)%uint64(n))
+	v := r.Next()
+	for v > max {
+		v = r.Next()
+	}
+	return int(v % uint32(n))
+}
+
+func PageRank[T Float](a float32, seed uint32, adj Matrix[T]) Matrix[T] {
 	for i := range adj.Rows {
 		var sum T
 		for ii := range adj.Cols {
@@ -476,13 +491,16 @@ func PageRank[T Float](seed uint32, adj Matrix[T]) Matrix[T] {
 	}
 	rng := RNG(seed)
 	counts := make([]uint64, adj.Cols)
-	const sets = 16
+	const sets = 8
 	iterations := adj.Rows * adj.Cols
 	done := make(chan bool, 8)
 	process := func(seed uint32) {
-		rng, node := RNG(seed), 0
+		rng, node := RNG(seed), rng.Intn(adj.Cols)
 		for range iterations {
-			total, selected, found := T(0.0), T(rng.Next())/T(math.MaxUint32), false
+			if rng.Float32() > a {
+				node = rng.Intn(adj.Cols)
+			}
+			total, selected, found := T(0.0), T(rng.Float32()), false
 			for i, weight := range adj.Data[node*adj.Cols : (node+1)*adj.Cols] {
 				total += weight
 				if selected < total {
@@ -491,12 +509,7 @@ func PageRank[T Float](seed uint32, adj Matrix[T]) Matrix[T] {
 				}
 			}
 			if !found {
-				max := uint32((1 << 32) - 1 - (1<<32)%uint64(adj.Cols))
-				v := rng.Next()
-				for v > max {
-					v = rng.Next()
-				}
-				node = int(v % uint32(adj.Cols))
+				node = rng.Intn(adj.Cols)
 			}
 			counter := &counts[node]
 			atomic.AddUint64(counter, 1)

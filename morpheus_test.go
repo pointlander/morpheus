@@ -21,7 +21,7 @@ func TestPageRank(t *testing.T) {
 	graph.Link(3, 1, 5.0)
 
 	nodes := make([]float64, 4)
-	graph.Rank(0.85, 0.000001, func(node uint32, rank float64) {
+	graph.Rank(0.85, 0.001, func(node uint32, rank float64) {
 		nodes[node-1] = rank
 	})
 	t.Log(nodes)
@@ -32,7 +32,7 @@ func TestPageRank(t *testing.T) {
 	adj.Data[1*4+2] = 3.0
 	adj.Data[1*4+3] = 4.0
 	adj.Data[2*4+0] = 5.0
-	p := PageRank(1, adj)
+	p := PageRank(.85, 1, adj)
 	t.Log(p.Data)
 }
 
@@ -67,7 +67,7 @@ func BenchmarkPageRank(b *testing.B) {
 		graph.Link(2, 4, 4.0)
 		graph.Link(3, 1, 5.0)
 
-		graph.Rank(0.85, 0.000001, func(node uint32, rank float64) {
+		graph.Rank(0.85, 0.001, func(node uint32, rank float64) {
 
 		})
 	}
@@ -81,6 +81,6 @@ func BenchmarkPageRankFast(b *testing.B) {
 		adj.Data[1*4+2] = 3.0
 		adj.Data[1*4+3] = 4.0
 		adj.Data[2*4+0] = 5.0
-		PageRank(1, adj)
+		PageRank(.85, 1, adj)
 	}
 }
