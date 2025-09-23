@@ -491,7 +491,12 @@ func PageRank[T Float](seed uint32, adj Matrix[T]) Matrix[T] {
 				}
 			}
 			if !found {
-				node = int(rng.Next() % uint32(adj.Cols))
+				max := uint32((1 << 32) - 1 - (1<<32)%uint64(adj.Cols))
+				v := rng.Next()
+				for v > max {
+					v = rng.Next()
+				}
+				node = int(v % uint32(adj.Cols))
 			}
 			counter := &counts[node]
 			atomic.AddUint64(counter, 1)
