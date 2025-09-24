@@ -479,7 +479,7 @@ func (r *RNG) Intn(n int) int {
 	return int(v % uint32(n))
 }
 
-func PageRank[T Float](a float32, seed uint32, adj Matrix[T]) Matrix[T] {
+func PageRank[T Float](a float32, e int, seed uint32, adj Matrix[T]) Matrix[T] {
 	for i := range adj.Rows {
 		var sum T
 		for ii := range adj.Cols {
@@ -491,7 +491,6 @@ func PageRank[T Float](a float32, seed uint32, adj Matrix[T]) Matrix[T] {
 	}
 	rng := RNG(seed)
 	counts := make([]uint64, adj.Cols)
-	const sets = 8
 	iterations := adj.Rows * adj.Cols
 	done := make(chan bool, 8)
 	process := func(seed uint32) {
@@ -518,12 +517,12 @@ func PageRank[T Float](a float32, seed uint32, adj Matrix[T]) Matrix[T] {
 	}
 
 	index, flights, cpus := 0, 0, runtime.NumCPU()
-	for index < sets && flights < cpus {
+	for index < e && flights < cpus {
 		go process(rng.Next())
 		index++
 		flights++
 	}
-	for index < sets {
+	for index < e {
 		<-done
 		flights--
 
@@ -537,7 +536,7 @@ func PageRank[T Float](a float32, seed uint32, adj Matrix[T]) Matrix[T] {
 
 	p := NewMatrix[T](len(counts), 1)
 	for _, value := range counts {
-		p.Data = append(p.Data, T(value)/T(sets*iterations))
+		p.Data = append(p.Data, T(value)/T(e*iterations))
 	}
 	return p
 }
