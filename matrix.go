@@ -422,6 +422,26 @@ func (m Matrix[T]) CS(n Matrix[T]) T {
 	return sum / count
 }
 
+// CS implements cosine similarity
+func (m Matrix[T]) Unit() Matrix[T] {
+	o := NewMatrix[T](m.Cols, m.Rows)
+	for i := 0; i < len(m.Data); i += m.Cols {
+		md := m.Data[i : i+m.Cols]
+		aa := dot(md, md)
+		if aa <= 0 {
+			for _, value := range md {
+				o.Data = append(o.Data, value)
+			}
+			continue
+		}
+		aa = T(math.Sqrt(float64(aa)))
+		for _, value := range md {
+			o.Data = append(o.Data, value/aa)
+		}
+	}
+	return o
+}
+
 // SelfAttention computes the self attention of Q, K, V
 func SelfAttention[T Float](Q, K, V Matrix[T]) Matrix[T] {
 	o := Matrix[T]{

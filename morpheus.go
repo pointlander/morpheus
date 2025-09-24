@@ -51,30 +51,36 @@ func Morpheus[T any](seed int64, config Config, vectors []*Vector[T]) [][]float6
 		aa := a.Softmax(1)
 		bb := b.Softmax(1)
 		graph := pagerank.NewGraph()
+		x := NewMatrix(cols, len(vectors), make([]float32, cols*len(vectors))...)
+		y := NewMatrix(cols, len(vectors), make([]float32, cols*len(vectors))...)
 		for i := range vectors {
-			x := NewMatrix(cols, 1, make([]float32, cols)...)
 			for ii, value := range vectors[i].Vector {
 				if value < 0 {
-					x.Data[config.Size+ii] = -value
+					x.Data[i*cols+config.Size+ii] = -value
 					continue
 				}
-				x.Data[ii] = value
-			}
-			xx := aa.MulT(x)
-			for ii := range vectors {
-				y := NewMatrix(cols, 1, make([]float32, cols)...)
-				for iii, value := range vectors[ii].Vector {
-					if value < 0 {
-						y.Data[config.Size+iii] = -value
-						continue
-					}
-					y.Data[iii] = value
-				}
-				yy := bb.MulT(y)
-				cs := xx.CS(yy)
-				graph.Link(uint32(i), uint32(ii), float64(cs))
+				x.Data[i*cols+ii] = value
 			}
 		}
+		for i := range vectors {
+			for ii, value := range vectors[i].Vector {
+				if value < 0 {
+					y.Data[i*cols+config.Size+ii] = -value
+					continue
+				}
+				y.Data[i*cols+ii] = value
+			}
+		}
+
+		xx := aa.MulT(x).Unit()
+		yy := bb.MulT(y).Unit()
+		cs := yy.MulT(xx)
+		for i := range cs.Rows {
+			for ii := range cs.Cols {
+				graph.Link(uint32(i), uint32(ii), float64(cs.Data[i*cs.Cols+ii]))
+			}
+		}
+
 		result := make([]float64, len(vectors))
 		graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
 			result[node] = rank
