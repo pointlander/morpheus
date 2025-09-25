@@ -499,6 +499,7 @@ func (r *RNG) Intn(n int) int {
 	return int(v % uint32(n))
 }
 
+// PageRank is a counting based pagerank implementation
 func PageRank[T Float](a float32, e int, seed uint32, adj Matrix[T]) Matrix[T] {
 	for i := range adj.Rows {
 		var sum T
@@ -555,6 +556,69 @@ func PageRank[T Float](a float32, e int, seed uint32, adj Matrix[T]) Matrix[T] {
 	}
 
 	p := NewMatrix[T](len(counts), 1)
+	for _, value := range counts {
+		p.Data = append(p.Data, T(value)/T(e*iterations))
+	}
+	return p
+}
+
+// PageRankMarkov is a counting  pagerank implementation with a markov model
+func PageRankMarkov[T Float](a float32, e int, seed uint32, adj Matrix[T]) Matrix[T] {
+	for i := range adj.Rows {
+		var sum T
+		for ii := range adj.Cols {
+			sum += adj.Data[i*adj.Cols+ii]
+		}
+		for ii := range adj.Cols {
+			adj.Data[i*adj.Cols+ii] /= sum
+		}
+	}
+	rng := RNG(seed)
+	counts := make([]uint64, adj.Cols*adj.Rows)
+	iterations := adj.Rows * adj.Cols
+	done := make(chan bool, 8)
+	process := func(seed uint32) {
+		rng, node, prev := RNG(seed), rng.Intn(adj.Cols), 0
+		for range iterations {
+			if rng.Float32() > a {
+				prev, node = node, rng.Intn(adj.Cols)
+			}
+			total, selected, found := T(0.0), T(rng.Float32()), false
+			for i, weight := range adj.Data[node*adj.Cols : (node+1)*adj.Cols] {
+				total += weight
+				if selected < total {
+					prev, node, found = node, i, true
+					break
+				}
+			}
+			if !found {
+				prev, node = node, rng.Intn(adj.Cols)
+			}
+			counter := &counts[node*adj.Cols+prev]
+			atomic.AddUint64(counter, 1)
+		}
+		done <- true
+	}
+
+	index, flights, cpus := 0, 0, runtime.NumCPU()
+	for index < e && flights < cpus {
+		go process(rng.Next())
+		index++
+		flights++
+	}
+	for index < e {
+		<-done
+		flights--
+
+		go process(rng.Next())
+		index++
+		flights++
+	}
+	for range flights {
+		<-done
+	}
+
+	p := NewMatrix[T](adj.Cols, adj.Rows)
 	for _, value := range counts {
 		p.Data = append(p.Data, T(value)/T(e*iterations))
 	}

@@ -128,3 +128,35 @@ func Morpheus[T any](seed int64, config Config, vectors []*Vector[T]) [][]float6
 	}
 	return cov
 }
+
+func MorpheusMarkov[T any, F Float](seed int64, config Config, vectors []*Vector[T]) Matrix[F] {
+	rng := rand.New(rand.NewSource(seed))
+	width := config.Size
+	cols, rows := width, width
+	if config.Divider == 0 {
+		rows = int(math.Ceil(math.Log2(float64(width))))
+	} else {
+		rows /= config.Divider
+	}
+
+	x := NewMatrix(cols, len(vectors), make([]F, cols*len(vectors))...)
+	y := NewMatrix(cols, len(vectors), make([]F, cols*len(vectors))...)
+	for i := range vectors {
+		for ii, value := range vectors[i].Vector {
+			x.Data[i*cols+ii] = F(value)
+		}
+	}
+	for i := range vectors {
+		for ii, value := range vectors[i].Vector {
+			y.Data[i*cols+ii] = F(value)
+		}
+	}
+
+	xx := x.Unit()
+	yy := y.Unit()
+	adj := yy.MulT(xx)
+	/*for i := range adj.Cols {
+		adj.Data[i*adj.Cols+i] = 0
+	}*/
+	return PageRankMarkov(.85, 1024, rng.Uint32(), adj)
+}

@@ -26,6 +26,8 @@ import (
 var (
 	// FlagIris is the iris clusterting mode
 	FlagIris = flag.Bool("iris", false, "iris clustering")
+	// FlagIrisMarkov is the iris markov model
+	FlagIrisMarkov = flag.Bool("irismarkov", false, "iris markov mode")
 	// FlagClass classifies text
 	FlagClass = flag.Bool("class", false, "classify text")
 	// FlagText text generation mode
@@ -500,6 +502,11 @@ func main() {
 
 	if *FlagIris {
 		IrisMode()
+		return
+	}
+
+	if *FlagIrisMarkov {
+		IrisMarkovMode()
 		return
 	}
 
