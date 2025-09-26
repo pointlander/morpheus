@@ -662,6 +662,81 @@ func main() {
 	words = words[:1024]
 	cov := Morpheus(1, config, words)
 
+	{
+		rng := rand.New(rand.NewSource(1))
+		vectors := words
+		width := 2 * config.Size
+		cols := width
+		x := NewMatrix(cols, len(vectors), make([]float32, cols*len(vectors))...)
+		y := NewMatrix(cols, len(vectors), make([]float32, cols*len(vectors))...)
+		for i := range vectors {
+			for ii, value := range vectors[i].Vector {
+				if value < 0 {
+					x.Data[i*cols+config.Size+ii] = -value
+					continue
+				}
+				x.Data[i*cols+ii] = value
+			}
+		}
+		for i := range vectors {
+			for ii, value := range vectors[i].Vector {
+				if value < 0 {
+					y.Data[i*cols+config.Size+ii] = -value
+					continue
+				}
+				y.Data[i*cols+ii] = value
+			}
+		}
+
+		xx := x.Unit()
+		yy := y.Unit()
+		cs := yy.MulT(xx)
+		for i := range cs.Rows {
+			sum := float32(0.0)
+			row := cs.Data[i*cs.Cols : (i+1)*cs.Cols]
+			for _, value := range row {
+				sum += value
+			}
+			for ii := range row {
+				row[ii] /= sum
+			}
+		}
+		type Trace struct {
+			Trace []*Vector[Line]
+			Value float64
+		}
+		traces := make([]Trace, 128)
+		for i := range traces {
+			state, index := "god", 0
+			for i := range words {
+				if words[i].Meta.Word == state {
+					index = i
+					break
+				}
+			}
+			for range 33 {
+				total, selected := float32(0.0), rng.Float32()
+				for ii, value := range cs.Data[index*cs.Cols : (index+1)*cs.Cols] {
+					total += value
+					if selected < total {
+						index = ii
+						traces[i].Trace = append(traces[i].Trace, words[index])
+						traces[i].Value += words[index].Stddev
+						break
+					}
+				}
+			}
+		}
+
+		sort.Slice(traces, func(i, j int) bool {
+			return traces[i].Value < traces[j].Value
+		})
+		for _, word := range traces[0].Trace {
+			fmt.Printf("%s ", word.Meta.Word)
+		}
+		fmt.Println()
+	}
+
 	meta := make([][]float64, len(words))
 	for i := range meta {
 		meta[i] = make([]float64, len(words))
