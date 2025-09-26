@@ -604,6 +604,9 @@ func main() {
 		}
 	}
 	sort.Slice(words, func(i, j int) bool {
+		if words[i].Meta.Count == words[j].Meta.Count {
+			return words[i].Meta.Word < words[j].Meta.Word
+		}
 		return words[i].Meta.Count > words[j].Meta.Count
 	})
 	fmt.Println(len(words))
