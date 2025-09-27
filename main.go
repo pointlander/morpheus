@@ -700,8 +700,9 @@ func main() {
 		xx := x.Unit()
 		yy := y.Unit()
 		cs := yy.MulT(xx)
+		const context = "lord"
 		{
-			state, index := "god", 0
+			state, index := context, 0
 			for i := range words {
 				if words[i].Word == state {
 					index = i
@@ -733,7 +734,7 @@ func main() {
 		}
 		traces := make([]Trace, 2*1024)
 		for i := range traces {
-			state, index := "god", 0
+			state, index := context, 0
 			for i := range words {
 				if words[i].Word == state {
 					index = i
