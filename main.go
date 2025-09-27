@@ -694,6 +694,23 @@ func main() {
 		xx := x.Unit()
 		yy := y.Unit()
 		cs := yy.MulT(xx)
+		{
+			state, index := "god", 0
+			for i := range words {
+				if words[i].Meta.Word == state {
+					index = i
+					break
+				}
+			}
+			for i := range cs.Rows {
+				sum := float32(0.0)
+				row := cs.Data[i*cs.Cols : (i+1)*cs.Cols]
+				for _, value := range row {
+					sum += value
+				}
+				cs.Data[i*cs.Cols+index] = 128 * sum / float32(cs.Cols)
+			}
+		}
 		for i := range cs.Rows {
 			sum := float32(0.0)
 			row := cs.Data[i*cs.Cols : (i+1)*cs.Cols]
@@ -708,7 +725,7 @@ func main() {
 			Trace []*Vector[Line]
 			Value float64
 		}
-		traces := make([]Trace, 128)
+		traces := make([]Trace, 2*1024)
 		for i := range traces {
 			state, index := "god", 0
 			for i := range words {
