@@ -580,27 +580,30 @@ func main() {
 	graph := make(map[string]map[string]uint64)
 	word, previous := "", ""
 	for _, part := range parts {
-		part = reg.ReplaceAllString(part, "")
-		_, err := strconv.Atoi(part)
-		if err == nil {
-			continue
-		}
-		previous, word = word, strings.ToLower(part)
-		count := unique[word]
-		if count == nil {
-			count = &Vector[Line]{
-				Word: word,
-				Meta: Line{},
+		parts := reg.Split(part, -1)
+		parts = append(parts, reg.FindAllString(part, -1)...)
+		for _, part := range parts {
+			_, err := strconv.Atoi(part)
+			if err == nil {
+				continue
 			}
+			previous, word = word, strings.ToLower(strings.TrimSpace(part))
+			count := unique[word]
+			if count == nil {
+				count = &Vector[Line]{
+					Word: word,
+					Meta: Line{},
+				}
+			}
+			count.Meta.Count++
+			unique[word] = count
+			entry := graph[previous]
+			if entry == nil {
+				entry = make(map[string]uint64)
+			}
+			entry[word]++
+			graph[previous] = entry
 		}
-		count.Meta.Count++
-		unique[word] = count
-		entry := graph[previous]
-		if entry == nil {
-			entry = make(map[string]uint64)
-		}
-		entry[word]++
-		graph[previous] = entry
 	}
 	words := make([]*Vector[Line], len(unique))
 	{
