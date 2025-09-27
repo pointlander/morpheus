@@ -568,7 +568,6 @@ func main() {
 	}
 
 	type Line struct {
-		Word    string
 		Cluster int
 		Count   int
 	}
@@ -578,22 +577,30 @@ func main() {
 	parts := reg.Split(bible, -1)
 	reg = regexp.MustCompile(`[\p{P}]+`)
 	unique := make(map[string]*Vector[Line])
+	graph := make(map[string]map[string]uint64)
+	word, previous := "", ""
 	for _, part := range parts {
 		part = reg.ReplaceAllString(part, "")
 		_, err := strconv.Atoi(part)
 		if err == nil {
 			continue
 		}
-		count := unique[strings.ToLower(part)]
+		previous, word = word, strings.ToLower(part)
+		count := unique[word]
 		if count == nil {
 			count = &Vector[Line]{
-				Meta: Line{
-					Word: strings.ToLower(part),
-				},
+				Word: word,
+				Meta: Line{},
 			}
 		}
 		count.Meta.Count++
-		unique[strings.ToLower(part)] = count
+		unique[word] = count
+		entry := graph[previous]
+		if entry == nil {
+			entry = make(map[string]uint64)
+		}
+		entry[word]++
+		graph[previous] = entry
 	}
 	words := make([]*Vector[Line], len(unique))
 	{
@@ -605,7 +612,7 @@ func main() {
 	}
 	sort.Slice(words, func(i, j int) bool {
 		if words[i].Meta.Count == words[j].Meta.Count {
-			return words[i].Meta.Word < words[j].Meta.Word
+			return words[i].Word < words[j].Word
 		}
 		return words[i].Meta.Count > words[j].Meta.Count
 	})
@@ -628,9 +635,8 @@ func main() {
 		line := scanner.Text()
 		parts := strings.Split(line, " ")
 		word := Vector[Line]{
-			Meta: Line{
-				Word: strings.TrimSpace(parts[0]),
-			},
+			Word:   strings.TrimSpace(parts[0]),
+			Meta:   Line{},
 			Vector: make([]float32, 50),
 		}
 		for i, part := range parts[1:] {
@@ -640,11 +646,11 @@ func main() {
 			}
 			word.Vector[i] = float32(value)
 		}
-		index[word.Meta.Word] = &word
+		index[word.Word] = &word
 	}
 
 	for i := range words {
-		vector := index[words[i].Meta.Word]
+		vector := index[words[i].Word]
 		if vector != nil {
 			words[i].Vector = vector.Vector
 		}
@@ -663,7 +669,7 @@ func main() {
 		Divider:    0,
 	}
 	words = words[:1024]
-	cov := Morpheus(1, config, words)
+	cov := Morpheus2(1, config, words, graph)
 
 	{
 		rng := rand.New(rand.NewSource(1))
@@ -697,7 +703,7 @@ func main() {
 		{
 			state, index := "god", 0
 			for i := range words {
-				if words[i].Meta.Word == state {
+				if words[i].Word == state {
 					index = i
 					break
 				}
@@ -729,21 +735,31 @@ func main() {
 		for i := range traces {
 			state, index := "god", 0
 			for i := range words {
-				if words[i].Meta.Word == state {
+				if words[i].Word == state {
 					index = i
 					break
 				}
 			}
 			for range 33 {
-				total, selected := float32(0.0), rng.Float32()
-				for ii, value := range cs.Data[index*cs.Cols : (index+1)*cs.Cols] {
-					total += value
-					if selected < total {
-						index = ii
-						traces[i].Trace = append(traces[i].Trace, words[index])
-						traces[i].Value += words[index].Stddev
-						break
+			search:
+				for {
+					total, selected := float32(0.0), rng.Float32()
+					from := graph[state]
+					for ii, value := range cs.Data[index*cs.Cols : (index+1)*cs.Cols] {
+						total += value
+						to := from[words[ii].Word]
+						if to == 0 {
+							continue
+						}
+						if selected < total {
+							index = ii
+							traces[i].Trace = append(traces[i].Trace, words[index])
+							state = words[index].Word
+							traces[i].Value += words[index].Stddev
+							break search
+						}
 					}
+					state = words[rng.Intn(len(words))].Word
 				}
 			}
 		}
@@ -752,7 +768,7 @@ func main() {
 			return traces[i].Value < traces[j].Value
 		})
 		for _, word := range traces[0].Trace {
-			fmt.Printf("%s ", word.Meta.Word)
+			fmt.Printf("%s ", word.Word)
 		}
 		fmt.Println()
 	}
@@ -811,7 +827,7 @@ func main() {
 	fmt.Fprintf(output, " </tr>\n")
 	for i := range words {
 		fmt.Fprintf(output, " <tr>\n")
-		fmt.Fprintf(output, "  <td>%s</td>\n", words[i].Meta.Word)
+		fmt.Fprintf(output, "  <td>%s</td>\n", words[i].Word)
 		fmt.Fprintf(output, "  <td>%d</td>\n", words[i].Meta.Count)
 		fmt.Fprintf(output, "  <td>%d</td>\n", words[i].Meta.Cluster)
 		fmt.Fprintf(output, "  <td>%.8f</td>\n", words[i].Stddev)
