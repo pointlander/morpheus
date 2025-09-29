@@ -647,15 +647,17 @@ func PageRankMarkov[T Float](a float32, e int, seed uint32, adj Matrix[T]) Matri
 	}
 
 	p := NewMatrix[T](adj.Cols, adj.Rows)
-	sum := int64(0)
-	for _, value := range counts {
-		if value < 0 {
-			value = -value
+	for i := 0; i < p.Cols*p.Rows; i += p.Cols {
+		sum := int64(0)
+		for _, value := range counts[i : i+p.Cols] {
+			if value < 0 {
+				value = -value
+			}
+			sum += value
 		}
-		sum += value
-	}
-	for _, value := range counts {
-		p.Data = append(p.Data, T(value)/T(sum))
+		for _, value := range counts[i : i+p.Cols] {
+			p.Data = append(p.Data, T(value)/T(sum))
+		}
 	}
 	return p
 }
