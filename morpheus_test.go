@@ -5,6 +5,8 @@
 package main
 
 import (
+	"fmt"
+	"math"
 	"math/rand"
 	"testing"
 
@@ -45,6 +47,29 @@ func TestPageRankMarkov(t *testing.T) {
 	adj.Data[2*4+0] = 5.0
 	p := PageRankMarkov(.85, 33, 1, adj)
 	t.Log(p.Data)
+}
+
+func TestGramSchmidt(t *testing.T) {
+	rng := rand.New(rand.NewSource(1))
+	m := NewMatrix(8, 8, make([]float64, 8*8)...)
+	for i := range m.Data {
+		m.Data[i] = rng.NormFloat64()
+	}
+	n := m.GramSchmidt()
+	t.Log(n.Data)
+	result := n.T().MulT(n.T()).Data
+	for i := range 8 {
+		s := ""
+		for ii := range 8 {
+			value := result[i*8+ii]
+			if math.Abs(value) < 1e-6 {
+				s += fmt.Sprintf("0 ")
+			} else {
+				s += fmt.Sprintf("%f ", value)
+			}
+		}
+		t.Log(s)
+	}
 }
 
 func BenchmarkMorpheus(b *testing.B) {
