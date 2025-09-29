@@ -34,7 +34,7 @@ func TestPageRank(t *testing.T) {
 	adj.Data[1*4+2] = 3.0
 	adj.Data[1*4+3] = 4.0
 	adj.Data[2*4+0] = 5.0
-	p := PageRank(.85, 8, 1, adj)
+	p := PageRank(.85, 32, 1, adj)
 	t.Log(p.Data)
 }
 
