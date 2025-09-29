@@ -110,11 +110,11 @@ func IrisMode() {
 		}
 	}
 	config := Config{
-		Iterations: 512,
+		Iterations: 8 * 1024,
 		Size:       4,
-		Divider:    2,
+		Divider:    1,
 	}
-	cov := Morpheus(rng.Int63(), config, vectors)
+	cov := MorpheusGramSchmidt(rng.Int63(), config, vectors)
 
 	sort.Slice(vectors, func(i, j int) bool {
 		return vectors[i].Stddev < vectors[j].Stddev
