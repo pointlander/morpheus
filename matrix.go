@@ -504,14 +504,18 @@ func PageRank[T Float](a float32, e int, seed uint32, adj Matrix[T]) Matrix[T] {
 	for i := range adj.Rows {
 		var sum T
 		for ii := range adj.Cols {
-			sum += adj.Data[i*adj.Cols+ii]
+			value := adj.Data[i*adj.Cols+ii]
+			if value < 0 {
+				value = -value
+			}
+			sum += value
 		}
 		for ii := range adj.Cols {
 			adj.Data[i*adj.Cols+ii] /= sum
 		}
 	}
 	rng := RNG(seed)
-	counts := make([]uint64, adj.Cols)
+	counts := make([]int64, adj.Cols)
 	iterations := adj.Rows * adj.Cols
 	done := make(chan bool, 8)
 	process := func(seed uint32) {
@@ -520,9 +524,15 @@ func PageRank[T Float](a float32, e int, seed uint32, adj Matrix[T]) Matrix[T] {
 			if rng.Float32() > a {
 				node = rng.Intn(adj.Cols)
 			}
-			total, selected, found := T(0.0), T(rng.Float32()), false
+			total, selected, found, negative := T(0.0), T(rng.Float32()), false, false
 			for i, weight := range adj.Data[node*adj.Cols : (node+1)*adj.Cols] {
 				total += weight
+				if weight < 0 {
+					negative = true
+					weight = -weight
+				} else {
+					negative = false
+				}
 				if selected < total {
 					node, found = i, true
 					break
@@ -532,7 +542,11 @@ func PageRank[T Float](a float32, e int, seed uint32, adj Matrix[T]) Matrix[T] {
 				node = rng.Intn(adj.Cols)
 			}
 			counter := &counts[node]
-			atomic.AddUint64(counter, 1)
+			if negative {
+				atomic.AddInt64(counter, -1)
+			} else {
+				atomic.AddInt64(counter, 1)
+			}
 		}
 		done <- true
 	}
@@ -567,14 +581,18 @@ func PageRankMarkov[T Float](a float32, e int, seed uint32, adj Matrix[T]) Matri
 	for i := range adj.Rows {
 		var sum T
 		for ii := range adj.Cols {
-			sum += adj.Data[i*adj.Cols+ii]
+			value := adj.Data[i*adj.Cols+ii]
+			if value < 0 {
+				value = -value
+			}
+			sum += value
 		}
 		for ii := range adj.Cols {
 			adj.Data[i*adj.Cols+ii] /= sum
 		}
 	}
 	rng := RNG(seed)
-	counts := make([]uint64, adj.Cols*adj.Rows)
+	counts := make([]int64, adj.Cols*adj.Rows)
 	iterations := adj.Rows * adj.Cols
 	done := make(chan bool, 8)
 	process := func(seed uint32) {
@@ -583,8 +601,14 @@ func PageRankMarkov[T Float](a float32, e int, seed uint32, adj Matrix[T]) Matri
 			if rng.Float32() > a {
 				prev, node = node, rng.Intn(adj.Cols)
 			}
-			total, selected, found := T(0.0), T(rng.Float32()), false
+			total, selected, found, negative := T(0.0), T(rng.Float32()), false, false
 			for i, weight := range adj.Data[node*adj.Cols : (node+1)*adj.Cols] {
+				if weight < 0 {
+					negative = true
+					weight = -weight
+				} else {
+					negative = false
+				}
 				total += weight
 				if selected < total {
 					prev, node, found = node, i, true
@@ -595,7 +619,11 @@ func PageRankMarkov[T Float](a float32, e int, seed uint32, adj Matrix[T]) Matri
 				prev, node = node, rng.Intn(adj.Cols)
 			}
 			counter := &counts[node*adj.Cols+prev]
-			atomic.AddUint64(counter, 1)
+			if negative {
+				atomic.AddInt64(counter, -1)
+			} else {
+				atomic.AddInt64(counter, 1)
+			}
 		}
 		done <- true
 	}
@@ -619,8 +647,15 @@ func PageRankMarkov[T Float](a float32, e int, seed uint32, adj Matrix[T]) Matri
 	}
 
 	p := NewMatrix[T](adj.Cols, adj.Rows)
+	sum := int64(0)
 	for _, value := range counts {
-		p.Data = append(p.Data, T(value)/T(e*iterations))
+		if value < 0 {
+			value = -value
+		}
+		sum += value
+	}
+	for _, value := range counts {
+		p.Data = append(p.Data, T(value)/T(sum))
 	}
 	return p
 }

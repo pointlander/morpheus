@@ -38,6 +38,17 @@ func TestPageRank(t *testing.T) {
 	t.Log(p.Data)
 }
 
+func TestPageRankNegative(t *testing.T) {
+	adj := NewMatrix(4, 4, make([]float64, 4*4)...)
+	adj.Data[0*4+1] = 1.0
+	adj.Data[0*4+2] = -2.0
+	adj.Data[1*4+2] = 3.0
+	adj.Data[1*4+3] = -4.0
+	adj.Data[2*4+0] = 5.0
+	p := PageRank(.85, 32, 1, adj)
+	t.Log(p.Data)
+}
+
 func TestPageRankMarkov(t *testing.T) {
 	adj := NewMatrix(4, 4, make([]float64, 4*4)...)
 	adj.Data[0*4+1] = 1.0
