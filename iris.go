@@ -110,7 +110,7 @@ func IrisMode() {
 		}
 	}
 	config := Config{
-		Iterations: 8 * 1024,
+		Iterations: 512,
 		Size:       4,
 		Divider:    1,
 	}

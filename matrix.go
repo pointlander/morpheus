@@ -569,9 +569,16 @@ func PageRank[T Float](a float32, e int, seed uint32, adj Matrix[T]) Matrix[T] {
 		<-done
 	}
 
+	sum := int64(0)
+	for _, value := range counts {
+		if value < 0 {
+			value = -value
+		}
+		sum += value
+	}
 	p := NewMatrix[T](len(counts), 1)
 	for _, value := range counts {
-		p.Data = append(p.Data, T(value)/T(e*iterations))
+		p.Data = append(p.Data, T(value)/T(sum))
 	}
 	return p
 }
