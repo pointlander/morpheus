@@ -157,24 +157,15 @@ func MorpheusGramSchmidt[T any](seed int64, config Config, vectors []*Vector[T])
 		}
 		aa := a.GramSchmidt().T()
 		bb := b.GramSchmidt().T()
-		//graph := pagerank.NewGraph()
 		x := NewMatrix(cols, len(vectors), make([]float32, cols*len(vectors))...)
 		y := NewMatrix(cols, len(vectors), make([]float32, cols*len(vectors))...)
 		for i := range vectors {
 			for ii, value := range vectors[i].Vector {
-				/*if value < 0 {
-					x.Data[i*cols+config.Size+ii] = -value
-					continue
-				}*/
 				x.Data[i*cols+ii] = value
 			}
 		}
 		for i := range vectors {
 			for ii, value := range vectors[i].Vector {
-				/*if value < 0 {
-					y.Data[i*cols+config.Size+ii] = -value
-					continue
-				}*/
 				y.Data[i*cols+ii] = value
 			}
 		}
@@ -182,20 +173,6 @@ func MorpheusGramSchmidt[T any](seed int64, config Config, vectors []*Vector[T])
 		xx := aa.MulT(x).Unit()
 		yy := bb.MulT(y).Unit()
 		cs := yy.MulT(xx)
-		/*for i := range cs.Rows {
-			for ii := range cs.Cols {
-				cs := cs.Data[i*cs.Cols+ii]
-				if cs < 0 {
-					cs = -cs
-				}
-				graph.Link(uint32(i), uint32(ii), float64(cs))
-			}
-		}
-
-		result := make([]float64, len(vectors))
-		graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
-			result[node] = rank
-		})*/
 		result := PageRank(1.0, 256, rng.Uint32(), cs)
 		r := make([]float64, len(result.Data))
 		for key, value := range result.Data {
