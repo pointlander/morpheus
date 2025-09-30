@@ -28,7 +28,7 @@ type Config struct {
 	Divider    int
 }
 
-func Morpheus[T any](seed int64, config Config, vectors []*Vector[T]) [][]float64 {
+func Morpheus[T any](seed int64, config Config, vectors []*Vector[T], mutate ...func(cs *Matrix[float32])) [][]float64 {
 	rng := rand.New(rand.NewSource(seed))
 	results := make([][]float64, config.Iterations)
 	width := 2 * config.Size
@@ -76,6 +76,9 @@ func Morpheus[T any](seed int64, config Config, vectors []*Vector[T]) [][]float6
 		xx := aa.MulT(x).Unit()
 		yy := bb.MulT(y).Unit()
 		cs := yy.MulT(xx)
+		if len(mutate) == 1 {
+			mutate[0](&cs)
+		}
 		for i := range cs.Rows {
 			for ii := range cs.Cols {
 				cs := cs.Data[i*cs.Cols+ii]

@@ -577,8 +577,6 @@ func main() {
 	parts := reg.Split(bible, -1)
 	reg = regexp.MustCompile(`[\p{P}]+`)
 	unique := make(map[string]*Vector[Line])
-	graph := make(map[string]map[string]uint64)
-	word, previous := "", ""
 	for _, part := range parts {
 		parts := reg.Split(part, -1)
 		parts = append(parts, reg.FindAllString(part, -1)...)
@@ -587,7 +585,7 @@ func main() {
 			if err == nil {
 				continue
 			}
-			previous, word = word, strings.ToLower(strings.TrimSpace(part))
+			word := strings.ToLower(strings.TrimSpace(part))
 			count := unique[word]
 			if count == nil {
 				count = &Vector[Line]{
@@ -597,12 +595,6 @@ func main() {
 			}
 			count.Meta.Count++
 			unique[word] = count
-			entry := graph[previous]
-			if entry == nil {
-				entry = make(map[string]uint64)
-			}
-			entry[word]++
-			graph[previous] = entry
 		}
 	}
 	words := make([]*Vector[Line], len(unique))
@@ -672,111 +664,75 @@ func main() {
 		Divider:    0,
 	}
 	words = words[:1024]
-	cov := Morpheus2(1, config, words, graph)
-
 	{
 		rng := rand.New(rand.NewSource(1))
-		vectors := words
-		width := 2 * config.Size
-		cols := width
-		x := NewMatrix(cols, len(vectors), make([]float32, cols*len(vectors))...)
-		y := NewMatrix(cols, len(vectors), make([]float32, cols*len(vectors))...)
-		for i := range vectors {
-			for ii, value := range vectors[i].Vector {
-				if value < 0 {
-					x.Data[i*cols+config.Size+ii] = -value
-					continue
-				}
-				x.Data[i*cols+ii] = value
-			}
-		}
-		for i := range vectors {
-			for ii, value := range vectors[i].Vector {
-				if value < 0 {
-					y.Data[i*cols+config.Size+ii] = -value
-					continue
-				}
-				y.Data[i*cols+ii] = value
-			}
-		}
-
-		xx := x.Unit()
-		yy := y.Unit()
-		cs := yy.MulT(xx)
-		const context = "lord"
-		{
-			state, index := context, 0
-			for i := range words {
-				if words[i].Word == state {
-					index = i
-					break
-				}
-			}
-			for i := range cs.Rows {
-				sum := float32(0.0)
-				row := cs.Data[i*cs.Cols : (i+1)*cs.Cols]
-				for _, value := range row {
-					sum += value
-				}
-				cs.Data[i*cs.Cols+index] = 128 * sum / float32(cs.Cols)
-			}
-		}
-		for i := range cs.Rows {
-			sum := float32(0.0)
-			row := cs.Data[i*cs.Cols : (i+1)*cs.Cols]
-			for _, value := range row {
-				sum += value
-			}
-			for ii := range row {
-				row[ii] /= sum
-			}
-		}
 		type Trace struct {
 			Trace []*Vector[Line]
 			Value float64
 		}
-		traces := make([]Trace, 2*1024)
+		traces := make([]Trace, 7)
+		context := "lord"
 		for i := range traces {
+			fmt.Println("trace", i)
 			state, index := context, 0
-			for i := range words {
-				if words[i].Word == state {
-					index = i
+			for ii := range words {
+				if words[ii].Word == state {
+					index = ii
 					break
 				}
 			}
-			for range 33 {
-			search:
-				for {
-					total, selected := float32(0.0), rng.Float32()
-					from := graph[state]
-					for ii, value := range cs.Data[index*cs.Cols : (index+1)*cs.Cols] {
-						total += value
-						to := from[words[ii].Word]
-						if to == 0 {
-							continue
-						}
-						if selected < total {
-							index = ii
-							traces[i].Trace = append(traces[i].Trace, words[index])
-							state = words[index].Word
-							traces[i].Value += words[index].Stddev
-							break search
+
+			indexes := []int{index}
+			for ii := range 33 {
+				fmt.Println("word", ii)
+				Morpheus(rng.Int63(), config, words, func(cs *Matrix[float32]) {
+					for _, col := range indexes {
+						for i := range cs.Rows {
+							cs.Data[i*cs.Cols+col] = 1
 						}
 					}
-					state = words[rng.Intn(len(words))].Word
+				})
+				distribution, sum := make([]float64, len(words)), 0.0
+				for _, value := range words {
+					stddev := value.Stddev
+					if stddev > 0 {
+						sum += stddev
+					}
+				}
+				for iii, value := range words {
+					stddev := value.Stddev
+					if stddev > 0 {
+						distribution[iii] = stddev / sum
+					}
+				}
+
+				total, selected := 0.0, rng.Float64()
+				for iii, value := range distribution {
+					total += value
+					if selected < total {
+						index = iii
+						indexes = append(indexes, index)
+						traces[i].Trace = append(traces[i].Trace, words[index])
+						state = words[index].Word
+						traces[i].Value += math.Abs(words[index].Stddev)
+						break
+					}
 				}
 			}
 		}
 
 		sort.Slice(traces, func(i, j int) bool {
-			return traces[i].Value < traces[j].Value
+			return traces[i].Value > traces[j].Value
 		})
-		for _, word := range traces[0].Trace {
-			fmt.Printf("%s ", word.Word)
+		for i := range traces {
+			for _, word := range traces[i].Trace {
+				fmt.Printf("%s ", word.Word)
+			}
+			fmt.Println()
 		}
-		fmt.Println()
 	}
 
+	cov := Morpheus(1, config, words)
 	meta := make([][]float64, len(words))
 	for i := range meta {
 		meta[i] = make([]float64, len(words))
