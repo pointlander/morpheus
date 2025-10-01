@@ -683,12 +683,23 @@ func main() {
 			}
 
 			indexes := []int{index}
+			const weight = 128
 			for ii := range 33 {
 				fmt.Println("word", ii)
 				Morpheus(rng.Int63(), config, words, func(cs *Matrix[float32]) {
-					for _, col := range indexes {
+					for c, col := range indexes {
+					loop:
 						for i := range cs.Rows {
-							cs.Data[i*cs.Cols+col] = 1
+							if c > 0 && indexes[c-1] == i {
+								cs.Data[i*cs.Cols+col] = weight
+							} else {
+								for _, value := range indexes {
+									if value == i && col != i {
+										continue loop
+									}
+								}
+								cs.Data[i*cs.Cols+col] = weight
+							}
 						}
 					}
 				})
