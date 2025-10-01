@@ -659,7 +659,7 @@ func main() {
 	words = clean
 
 	config := Config{
-		Iterations: 8,
+		Iterations: 1,
 		Size:       50,
 		Divider:    1,
 		Accuracy:   8,
@@ -707,28 +707,34 @@ func main() {
 				})
 				distribution, sum := make([]float64, len(words)), 0.0
 				for _, value := range words {
-					stddev := value.Stddev
+					stddev := value.Avg
 					if stddev > 0 {
 						sum += stddev
 					}
 				}
 				for iii, value := range words {
-					stddev := value.Stddev
+					stddev := value.Avg
 					if stddev > 0 {
 						distribution[iii] = stddev / sum
 					}
 				}
 
 				total, selected := 0.0, rng.Float64()
+			sampling:
 				for iii, value := range distribution {
 					total += value
+					for _, value := range indexes {
+						if value == iii {
+							continue sampling
+						}
+					}
 					if selected < total {
 						index = iii
 						indexes = append(indexes, index)
 						traces[i].Trace = append(traces[i].Trace, words[index])
 						fmt.Println(words[index].Word)
 						state = words[index].Word
-						traces[i].Value += math.Abs(words[index].Stddev)
+						traces[i].Value += math.Abs(words[index].Avg)
 						break
 					}
 				}
