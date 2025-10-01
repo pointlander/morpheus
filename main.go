@@ -659,7 +659,7 @@ func main() {
 	words = clean
 
 	config := Config{
-		Iterations: 8,
+		Iterations: 32,
 		Size:       50,
 		Divider:    0,
 	}
@@ -670,7 +670,7 @@ func main() {
 			Trace []*Vector[Line]
 			Value float64
 		}
-		traces := make([]Trace, 7)
+		traces := make([]Trace, 1)
 		context := "lord"
 		for i := range traces {
 			fmt.Println("trace", i)
