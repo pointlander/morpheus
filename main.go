@@ -683,7 +683,7 @@ func main() {
 			}
 
 			indexes := []int{index}
-			const weight = 128
+			const weight = 256
 			for ii := range 33 {
 				fmt.Println("word", ii)
 				Morpheus(rng.Int63(), config, words, func(cs *Matrix[float32]) {
