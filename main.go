@@ -659,9 +659,9 @@ func main() {
 	words = clean
 
 	config := Config{
-		Iterations: 32,
+		Iterations: 8,
 		Size:       50,
-		Divider:    0,
+		Divider:    1,
 	}
 	words = words[:1024]
 	{
@@ -686,7 +686,8 @@ func main() {
 			const weight = 256
 			for ii := range 33 {
 				fmt.Println("word", ii)
-				Morpheus(rng.Int63(), config, words, func(cs *Matrix[float32]) {
+				MorpheusGramSchmidt(rng.Int63(), config, words, func(cs *Matrix[float32]) {
+					fmt.Println("cs")
 					for c, col := range indexes {
 					loop:
 						for i := range cs.Rows {
@@ -724,6 +725,7 @@ func main() {
 						index = iii
 						indexes = append(indexes, index)
 						traces[i].Trace = append(traces[i].Trace, words[index])
+						fmt.Println(words[index].Word)
 						state = words[index].Word
 						traces[i].Value += math.Abs(words[index].Stddev)
 						break

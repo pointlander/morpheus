@@ -137,7 +137,7 @@ func Morpheus[T any](seed int64, config Config, vectors []*Vector[T], mutate ...
 	return cov
 }
 
-func MorpheusGramSchmidt[T any](seed int64, config Config, vectors []*Vector[T]) [][]float64 {
+func MorpheusGramSchmidt[T any](seed int64, config Config, vectors []*Vector[T], mutate ...func(cs *Matrix[float32])) [][]float64 {
 	rng := rand.New(rand.NewSource(seed))
 	results := make([][]float64, config.Iterations)
 	width := config.Size
@@ -176,6 +176,9 @@ func MorpheusGramSchmidt[T any](seed int64, config Config, vectors []*Vector[T])
 		xx := aa.MulT(x).Unit()
 		yy := bb.MulT(y).Unit()
 		cs := yy.MulT(xx)
+		if len(mutate) == 1 {
+			mutate[0](&cs)
+		}
 		result := PageRank(1.0, 256, rng.Uint32(), cs)
 		r := make([]float64, len(result.Data))
 		for key, value := range result.Data {
