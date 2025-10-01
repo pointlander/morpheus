@@ -26,6 +26,7 @@ type Config struct {
 	Iterations int
 	Size       int
 	Divider    int
+	Accuracy   int
 }
 
 func Morpheus[T any](seed int64, config Config, vectors []*Vector[T], mutate ...func(cs *Matrix[float32])) [][]float64 {
@@ -179,7 +180,11 @@ func MorpheusGramSchmidt[T any](seed int64, config Config, vectors []*Vector[T],
 		if len(mutate) == 1 {
 			mutate[0](&cs)
 		}
-		result := PageRank(1.0, 256, rng.Uint32(), cs)
+		accuracy := 256
+		if config.Accuracy > 0 {
+			accuracy = config.Accuracy
+		}
+		result := PageRank(1.0, accuracy, rng.Uint32(), cs)
 		r := make([]float64, len(result.Data))
 		for key, value := range result.Data {
 			r[key] = float64(value)

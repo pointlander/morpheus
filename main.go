@@ -662,6 +662,7 @@ func main() {
 		Iterations: 8,
 		Size:       50,
 		Divider:    1,
+		Accuracy:   8,
 	}
 	words = words[:1024]
 	{
