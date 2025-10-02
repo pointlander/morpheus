@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"regexp"
 	"runtime/pprof"
@@ -222,4 +223,62 @@ func main() {
 		return words[i].Count > words[j].Count
 	})
 	fmt.Println(len(words))
+	words = words[:1024]
+
+	context := []int{}
+	for i := range words {
+		if words[i].Word == "lord" {
+			context = append(context, i)
+			break
+		}
+	}
+
+	rng := rand.New(rand.NewSource(1))
+	for range 33 {
+		adjacency := NewMatrix(len(words), len(words), make([]float32, len(words)*len(words))...)
+		for i := range words {
+			from := links[words[i].Word]
+			for ii := range words {
+				to := from[words[ii].Word]
+				adjacency.Data[i*adjacency.Cols+ii] = float32(to)
+			}
+		}
+		previous := 0
+		for i, word := range context {
+			for i := range words {
+				adjacency.Data[i*adjacency.Cols+word]++
+			}
+			if i > 0 {
+				adjacency.Data[previous*adjacency.Cols+word]++
+			}
+			previous = word
+		}
+		result := PageRank(1.0, 8, rng.Uint32(), adjacency)
+		distribution, sum := make([]float32, len(words)), float32(0.0)
+		for _, value := range result.Data {
+			if value < 0 {
+				value = -value
+			}
+			sum += value
+		}
+		for iii, value := range result.Data {
+			if value < 0 {
+				value = -value
+			}
+			distribution[iii] = value / sum
+		}
+
+		total, selected := float32(0.0), rng.Float32()
+		for iii, value := range distribution {
+			total += value
+			if selected < total {
+				context = append(context, iii)
+				break
+			}
+		}
+	}
+	for _, word := range context {
+		fmt.Printf("%s ", words[word].Word)
+	}
+	fmt.Println()
 }
