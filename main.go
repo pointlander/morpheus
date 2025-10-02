@@ -671,7 +671,7 @@ func main() {
 			Trace []*Vector[Line]
 			Value float64
 		}
-		traces := make([]Trace, 1)
+		traces := make([]Trace, 7)
 		context := "lord"
 		for i := range traces {
 			fmt.Println("trace", i)
@@ -708,15 +708,17 @@ func main() {
 				distribution, sum := make([]float64, len(words)), 0.0
 				for _, value := range words {
 					stddev := value.Avg
-					if stddev > 0 {
-						sum += stddev
+					if stddev < 0 {
+						stddev = -stddev
 					}
+					sum += stddev
 				}
 				for iii, value := range words {
 					stddev := value.Avg
-					if stddev > 0 {
-						distribution[iii] = stddev / sum
+					if stddev < 0 {
+						stddev = -stddev
 					}
+					distribution[iii] = stddev / sum
 				}
 
 				total, selected := 0.0, rng.Float64()
