@@ -626,6 +626,8 @@ func main() {
 	scanner := bufio.NewScanner(input)
 
 	index := make(map[string]*Vector[Line])
+	links := make(map[string]map[string]uint64)
+	previous, current := "", ""
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.Split(line, " ")
@@ -642,6 +644,13 @@ func main() {
 			word.Vector[i] = float32(value)
 		}
 		index[word.Word] = &word
+		previous, current = current, word.Word
+		link := links[previous]
+		if link == nil {
+			link = make(map[string]uint64)
+		}
+		link[current]++
+		links[previous] = link
 	}
 
 	for i := range words {
@@ -689,6 +698,15 @@ func main() {
 				fmt.Println("word", ii)
 				MorpheusGramSchmidt(rng.Int63(), config, words, func(cs *Matrix[float32]) {
 					fmt.Println("cs")
+					for i := range words {
+						from := links[words[i].Word]
+						for ii := range words {
+							to := from[words[ii].Word]
+							if to == 0 {
+								cs.Data[i*cs.Cols+ii] = 0
+							}
+						}
+					}
 					for c, col := range indexes {
 					loop:
 						for i := range cs.Rows {
