@@ -249,12 +249,20 @@ func main() {
 		}
 		for i, word := range context {
 			for i := range words {
-				adjacency.Data[i*adjacency.Cols+length+i] += 256
+				sum := float32(0.0)
+				for _, value := range adjacency.Data[i*adjacency.Cols : i*adjacency.Cols+length] {
+					sum += value
+				}
+				adjacency.Data[i*adjacency.Cols+length+i] += sum / 8
 			}
 			copy(adjacency.Data[(length+i)*adjacency.Cols:(length+i+1)*adjacency.Cols],
 				adjacency.Data[word*adjacency.Cols:(word+1)*adjacency.Cols])
 			if i > 0 {
-				adjacency.Data[(length+i-1)*adjacency.Cols+length+i] += 256
+				sum := float32(0.0)
+				for _, value := range adjacency.Data[(length+i-1)*adjacency.Cols : (length+i-1)*adjacency.Cols+length] {
+					sum += value
+				}
+				adjacency.Data[(length+i-1)*adjacency.Cols+length+i] += sum / 8
 			}
 		}
 		result := PageRank(1.0, 33, rng.Uint32(), adjacency)
