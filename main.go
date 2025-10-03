@@ -8,13 +8,13 @@ import (
 	"compress/bzip2"
 	"flag"
 	"fmt"
+	"github.com/alixaxel/pagerank"
 	"io"
 	"math/rand"
 	"os"
 	"regexp"
 	"runtime/pprof"
 	"sort"
-	//"strconv"
 	"strings"
 )
 
@@ -185,10 +185,6 @@ func main() {
 		parts := reg.Split(part, -1)
 		parts = append(parts, reg.FindAllString(part, -1)...)
 		for _, part := range parts {
-			/*_, err := strconv.Atoi(part)
-			if err == nil {
-				continue
-			}*/
 			word := strings.ToLower(strings.TrimSpace(part))
 			count := unique[word]
 			if count == nil {
@@ -226,71 +222,106 @@ func main() {
 	length := 1 * 1024
 	words = words[:length]
 
-	context := []int{}
-	for _, word := range []string{"the", "lord", "is", "good"} {
-		for i := range words {
-			if words[i].Word == word {
-				context = append(context, i)
-				break
+	type Path struct {
+		Path []int
+		Cost float64
+	}
+	done := make(chan Path)
+	process := func(seed int64) {
+		context, cost := []int{}, 0.0
+		for _, word := range []string{"the", "lord", "is", "good"} {
+			for i := range words {
+				if words[i].Word == word {
+					context = append(context, i)
+					break
+				}
 			}
+		}
+
+		rng := rand.New(rand.NewSource(seed))
+		for range 33 {
+			size := len(words) + len(context)
+			graph := pagerank.NewGraph()
+			adjacency := NewMatrix(size, size, make([]float32, size*size)...)
+			for i := range words {
+				from := links[words[i].Word]
+				for ii := range words {
+					to := from[words[ii].Word]
+					graph.Link(uint32(i), uint32(ii), float64(to))
+					adjacency.Data[i*adjacency.Cols+ii] = float32(to)
+				}
+			}
+			for i, word := range context {
+				for ii := range words {
+					sum := float32(0.0)
+					for _, value := range adjacency.Data[ii*adjacency.Cols : ii*adjacency.Cols+length] {
+						sum += value
+					}
+					graph.Link(uint32(ii), uint32(length+i), float64(sum/8))
+					adjacency.Data[ii*adjacency.Cols+length+i] += sum / 8
+				}
+				copy(adjacency.Data[(length+i)*adjacency.Cols:(length+i+1)*adjacency.Cols],
+					adjacency.Data[word*adjacency.Cols:(word+1)*adjacency.Cols])
+				if i > 0 {
+					sum := float32(0.0)
+					for _, value := range adjacency.Data[(length+i-1)*adjacency.Cols : (length+i-1)*adjacency.Cols+length] {
+						sum += value
+					}
+					graph.Link(uint32(length+i-1), uint32(length+i), float64(sum/8))
+					adjacency.Data[(length+i-1)*adjacency.Cols+length+i] += sum / 8
+				}
+			}
+			//result := PageRank(1.0, 33, rng.Uint32(), adjacency)
+			result := make([]float64, size)
+			graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
+				result[node] = rank
+			})
+			distribution, sum := make([]float64, len(words)), 0.0
+			for _, value := range result[:length] {
+				if value < 0 {
+					value = -value
+				}
+				sum += float64(value)
+			}
+			for iii, value := range result[:length] {
+				if value < 0 {
+					value = -value
+				}
+				distribution[iii] = float64(value) / sum
+			}
+
+			total, selected := 0.0, rng.Float64()
+			for iii, value := range distribution {
+				total += value
+				if selected < total {
+					cost += value
+					context = append(context, iii)
+					break
+				}
+			}
+		}
+		done <- Path{
+			Path: context,
+			Cost: cost,
 		}
 	}
 
 	rng := rand.New(rand.NewSource(1))
-	for range 33 {
-		size := len(words) + len(context)
-		adjacency := NewMatrix(size, size, make([]float32, size*size)...)
-		for i := range words {
-			from := links[words[i].Word]
-			for ii := range words {
-				to := from[words[ii].Word]
-				adjacency.Data[i*adjacency.Cols+ii] = float32(to)
-			}
-		}
-		for i, word := range context {
-			for i := range words {
-				sum := float32(0.0)
-				for _, value := range adjacency.Data[i*adjacency.Cols : i*adjacency.Cols+length] {
-					sum += value
-				}
-				adjacency.Data[i*adjacency.Cols+length+i] += sum / 8
-			}
-			copy(adjacency.Data[(length+i)*adjacency.Cols:(length+i+1)*adjacency.Cols],
-				adjacency.Data[word*adjacency.Cols:(word+1)*adjacency.Cols])
-			if i > 0 {
-				sum := float32(0.0)
-				for _, value := range adjacency.Data[(length+i-1)*adjacency.Cols : (length+i-1)*adjacency.Cols+length] {
-					sum += value
-				}
-				adjacency.Data[(length+i-1)*adjacency.Cols+length+i] += sum / 8
-			}
-		}
-		result := PageRank(1.0, 33, rng.Uint32(), adjacency)
-		distribution, sum := make([]float32, len(words)), float32(0.0)
-		for _, value := range result.Data[:length] {
-			if value < 0 {
-				value = -value
-			}
-			sum += value
-		}
-		for iii, value := range result.Data[:length] {
-			if value < 0 {
-				value = -value
-			}
-			distribution[iii] = value / sum
-		}
-
-		total, selected := float32(0.0), rng.Float32()
-		for iii, value := range distribution {
-			total += value
-			if selected < total {
-				context = append(context, iii)
-				break
-			}
-		}
+	for range 8 {
+		go process(rng.Int63())
 	}
-	for _, word := range context {
-		fmt.Printf("%s ", words[word].Word)
+	pathes := make([]Path, 8)
+	for i := range 8 {
+		pathes[i] = <-done
 	}
-	fmt.Println()
+	sort.Slice(pathes, func(i, j int) bool {
+		return pathes[i].Cost < pathes[j].Cost
+	})
+	for _, path := range pathes {
+		context := path.Path
+		for _, word := range context {
+			fmt.Printf("%s ", words[word].Word)
+		}
+		fmt.Println()
+	}
 }
