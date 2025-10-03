@@ -223,7 +223,8 @@ func main() {
 		return words[i].Count > words[j].Count
 	})
 	fmt.Println(len(words))
-	words = words[:1024]
+	length := 4 * 1024
+	words = words[:length]
 
 	context := []int{}
 	for i := range words {
@@ -235,7 +236,8 @@ func main() {
 
 	rng := rand.New(rand.NewSource(1))
 	for range 33 {
-		adjacency := NewMatrix(len(words), len(words), make([]float32, len(words)*len(words))...)
+		size := len(words) + len(context)
+		adjacency := NewMatrix(size, size, make([]float32, size*size)...)
 		for i := range words {
 			from := links[words[i].Word]
 			for ii := range words {
@@ -243,25 +245,25 @@ func main() {
 				adjacency.Data[i*adjacency.Cols+ii] = float32(to)
 			}
 		}
-		previous := 0
 		for i, word := range context {
 			for i := range words {
-				adjacency.Data[i*adjacency.Cols+word]++
+				adjacency.Data[i*adjacency.Cols+length+i]++
 			}
+			copy(adjacency.Data[(length+i)*adjacency.Cols:(length+i+1)*adjacency.Cols],
+				adjacency.Data[word*adjacency.Cols:(word+1)*adjacency.Cols])
 			if i > 0 {
-				adjacency.Data[previous*adjacency.Cols+word]++
+				adjacency.Data[(length+i-1)*adjacency.Cols+length+i]++
 			}
-			previous = word
 		}
 		result := PageRank(1.0, 8, rng.Uint32(), adjacency)
 		distribution, sum := make([]float32, len(words)), float32(0.0)
-		for _, value := range result.Data {
+		for _, value := range result.Data[:length] {
 			if value < 0 {
 				value = -value
 			}
 			sum += value
 		}
-		for iii, value := range result.Data {
+		for iii, value := range result.Data[:length] {
 			if value < 0 {
 				value = -value
 			}
