@@ -227,10 +227,12 @@ func main() {
 	words = words[:length]
 
 	context := []int{}
-	for i := range words {
-		if words[i].Word == "lord" {
-			context = append(context, i)
-			break
+	for _, word := range []string{"the", "lord", "is", "good"} {
+		for i := range words {
+			if words[i].Word == word {
+				context = append(context, i)
+				break
+			}
 		}
 	}
 
