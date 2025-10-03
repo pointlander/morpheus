@@ -223,7 +223,7 @@ func main() {
 		return words[i].Count > words[j].Count
 	})
 	fmt.Println(len(words))
-	length := 4 * 1024
+	length := 1 * 1024
 	words = words[:length]
 
 	context := []int{}
@@ -249,12 +249,12 @@ func main() {
 		}
 		for i, word := range context {
 			for i := range words {
-				adjacency.Data[i*adjacency.Cols+length+i]++
+				adjacency.Data[i*adjacency.Cols+length+i] += 256
 			}
 			copy(adjacency.Data[(length+i)*adjacency.Cols:(length+i+1)*adjacency.Cols],
 				adjacency.Data[word*adjacency.Cols:(word+1)*adjacency.Cols])
 			if i > 0 {
-				adjacency.Data[(length+i-1)*adjacency.Cols+length+i]++
+				adjacency.Data[(length+i-1)*adjacency.Cols+length+i] += 256
 			}
 		}
 		result := PageRank(1.0, 8, rng.Uint32(), adjacency)
