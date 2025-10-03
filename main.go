@@ -14,7 +14,7 @@ import (
 	"regexp"
 	"runtime/pprof"
 	"sort"
-	"strconv"
+	//"strconv"
 	"strings"
 )
 
@@ -177,7 +177,7 @@ func main() {
 	bible := string(files[1].Data)
 	reg := regexp.MustCompile(`\s+`)
 	parts := reg.Split(bible, -1)
-	reg = regexp.MustCompile(`[\p{P}]+`)
+	reg = regexp.MustCompile(`[\p{P}]+|[\d]`)
 	unique := make(map[string]*Word)
 	links := make(map[string]map[string]uint64)
 	previous, current := "", ""
@@ -185,10 +185,10 @@ func main() {
 		parts := reg.Split(part, -1)
 		parts = append(parts, reg.FindAllString(part, -1)...)
 		for _, part := range parts {
-			_, err := strconv.Atoi(part)
+			/*_, err := strconv.Atoi(part)
 			if err == nil {
 				continue
-			}
+			}*/
 			word := strings.ToLower(strings.TrimSpace(part))
 			count := unique[word]
 			if count == nil {
