@@ -257,7 +257,7 @@ func main() {
 				adjacency.Data[(length+i-1)*adjacency.Cols+length+i] += 256
 			}
 		}
-		result := PageRank(1.0, 8, rng.Uint32(), adjacency)
+		result := PageRank(1.0, 33, rng.Uint32(), adjacency)
 		distribution, sum := make([]float32, len(words)), float32(0.0)
 		for _, value := range result.Data[:length] {
 			if value < 0 {
