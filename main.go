@@ -37,6 +37,8 @@ var (
 	FlagMach1 = flag.Bool("mach1", false, "mach 1 mode")
 	// FlagExtreme extreme mode
 	FlagExtreme = flag.Bool("extreme", false, "extreme mode")
+	// FlagPageRank pagerank mode
+	FlagPageRank = flag.Bool("pagerank", false, "pagerank mode")
 	// FlagLearn learn the vector database
 	FlagLearn = flag.Bool("learn", false, "learn the vector database")
 	// FlagPrompt the prompt to use
@@ -82,61 +84,8 @@ func Iterate(markov *[order]Markov, state byte) {
 	}
 }
 
-func main() {
-	flag.Parse()
-
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-		if err := pprof.StartCPUProfile(f); err != nil {
-			panic(err)
-		}
-		defer pprof.StopCPUProfile()
-	}
-
-	if *FlagIris {
-		IrisMode()
-		return
-	}
-
-	if *FlagIrisMarkov {
-		IrisMarkovMode()
-		return
-	}
-
-	if *FlagClass {
-		ClassMode()
-		return
-	}
-
-	if *FlagText {
-		TextMode()
-		return
-	}
-
-	if *FlagTxt {
-		TxtMode()
-		return
-	}
-
-	if *Flag3m {
-		_3mMode()
-		return
-	}
-
-	if *FlagExtreme {
-		ExtremeMode()
-		return
-	}
-
-	if *FlagMach1 {
-		Mach1Mode()
-		return
-	}
-
+// PageRank mode
+func PageRankMode() {
 	type File struct {
 		Name string
 		Data []byte
@@ -219,7 +168,7 @@ func main() {
 		return words[i].Count > words[j].Count
 	})
 	fmt.Println(len(words))
-	length := 1 * 1024
+	length := 2 * 1024
 	words = words[:length]
 
 	type Path struct {
@@ -323,5 +272,66 @@ func main() {
 			fmt.Printf("%s ", words[word].Word)
 		}
 		fmt.Println()
+	}
+}
+
+func main() {
+	flag.Parse()
+
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			panic(err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
+	if *FlagIris {
+		IrisMode()
+		return
+	}
+
+	if *FlagIrisMarkov {
+		IrisMarkovMode()
+		return
+	}
+
+	if *FlagClass {
+		ClassMode()
+		return
+	}
+
+	if *FlagText {
+		TextMode()
+		return
+	}
+
+	if *FlagTxt {
+		TxtMode()
+		return
+	}
+
+	if *Flag3m {
+		_3mMode()
+		return
+	}
+
+	if *FlagExtreme {
+		ExtremeMode()
+		return
+	}
+
+	if *FlagMach1 {
+		Mach1Mode()
+		return
+	}
+
+	if *FlagPageRank {
+		PageRankMode()
+		return
 	}
 }
