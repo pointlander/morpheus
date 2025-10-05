@@ -443,13 +443,16 @@ func main() {
 	}
 
 	type Pivot struct {
-		Max float64
-		Col int
-		Row int
+		Max   float64
+		Col   int
+		Row   int
+		Left  *Pivot
+		Right *Pivot
 	}
-	pivots := make([]Pivot, 2)
 	cols := make(map[int]bool)
-	for p := range pivots {
+	var process func(depth int, rows []Row) *Pivot
+	process = func(depth int, rows []Row) *Pivot {
+		pivot := Pivot{}
 		for ii := range 8 {
 			if cols[ii] {
 				continue
@@ -497,12 +500,64 @@ func main() {
 				}
 				v /= c
 
-				if gain := v - (varA + varB); gain > pivots[p].Max {
-					pivots[p].Max, pivots[p].Col, pivots[p].Row = gain, ii, iii
+				if gain := v - (varA + varB); gain > pivot.Max {
+					pivot.Max, pivot.Col, pivot.Row = gain, ii, iii
 				}
 			}
 		}
-		cols[pivots[p].Col] = true
+		cols[pivot.Col] = true
+		if depth == 0 {
+			return &pivot
+		}
+		sort.Slice(rows, func(i, j int) bool {
+			return rows[i].Embedding[pivot.Col] < rows[j].Embedding[pivot.Col]
+		})
+		pivot.Left = process(depth-1, rows[:pivot.Row])
+		pivot.Right = process(depth-1, rows[pivot.Row:])
+		return &pivot
 	}
-	fmt.Println(pivots)
+	pivots := process(1, rows)
+	x := pivots
+	y, d := pivots.Left, false
+	if pivots.Right.Max > y.Max {
+		y = pivots.Right
+		d = true
+	}
+	fmt.Println(x, y)
+	sort.Slice(rows, func(i, j int) bool {
+		return rows[i].Embedding[x.Col] < rows[j].Embedding[x.Col]
+	})
+	s1 := rows[:x.Row]
+	var r []Row
+	if d {
+		r = rows[x.Row:]
+	} else {
+		r = rows[:x.Row]
+	}
+	sort.Slice(r, func(i, j int) bool {
+		return r[i].Embedding[x.Col] < r[j].Embedding[x.Col]
+	})
+	s2 := r[:y.Row]
+	s3 := r[y.Row:]
+	for i := range s1 {
+		s1[i].Cluster = 0
+	}
+	for i := range s2 {
+		s2[i].Cluster = 1
+	}
+	for i := range s3 {
+		s3[i].Cluster = 2
+	}
+	for _, row := range rows {
+		fmt.Println(row.Cluster, row.Label)
+	}
+	a = make(map[string][3]int)
+	for i := range rows {
+		histogram := a[rows[i].Label]
+		histogram[rows[i].Cluster]++
+		a[rows[i].Label] = histogram
+	}
+	for k, v := range a {
+		fmt.Println(k, v)
+	}
 }
