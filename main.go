@@ -350,13 +350,20 @@ func main() {
 		rl2.Data[i] = rng.NormFloat64()
 	}
 	l2 := rl2.GramSchmidt().T()
-	data := make([][]float64, 0, 8)
-	for _, row := range iris {
+	data := make([][]float64, len(iris))
+	type Row struct {
+		Fisher
+		Embedding []float64
+	}
+	rows := make([]Row, len(iris))
+	for i, row := range iris {
 		input := NewMatrix(4, 1, row.Measures...)
 		x := l1.MulT(input).Everett()
 		y := l2.MulT(x)
 		fmt.Println(row.Label, y.Data)
-		data = append(data, y.Data)
+		data[i] = y.Data
+		rows[i].Fisher = row
+		rows[i].Embedding = y.Data
 	}
 	avg := make([]float64, 8)
 	for _, row := range data {
@@ -418,17 +425,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	for i, row := range iris {
+	for i, row := range rows {
 		fmt.Println(row.Label, clusters[i])
+		rows[i].Cluster = clusters[i]
 	}
 	for i := range columns {
 		fmt.Println(columns[i])
 	}
 	a := make(map[string][3]int)
-	for i := range clusters {
-		histogram := a[iris[i].Label]
-		histogram[clusters[i]]++
-		a[iris[i].Label] = histogram
+	for i := range rows {
+		histogram := a[rows[i].Label]
+		histogram[rows[i].Cluster]++
+		a[rows[i].Label] = histogram
 	}
 	for k, v := range a {
 		fmt.Println(k, v)
