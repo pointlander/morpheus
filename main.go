@@ -345,7 +345,8 @@ func main() {
 		rl1.Data[i] = rng.NormFloat64()
 	}
 	l1 := rl1.GramSchmidt().T()
-	rl2 := NewMatrix(8, 8, make([]float64, 8*8)...)
+	const size = 8
+	rl2 := NewMatrix(size, size, make([]float64, size*size)...)
 	for i := range rl2.Data {
 		rl2.Data[i] = rng.NormFloat64()
 	}
@@ -365,7 +366,7 @@ func main() {
 		rows[i].Fisher = row
 		rows[i].Embedding = y.Data
 	}
-	avg := make([]float64, 8)
+	avg := make([]float64, size)
 	for _, row := range data {
 		for key, value := range row {
 			avg[key] += value
@@ -374,7 +375,7 @@ func main() {
 	for key, value := range avg {
 		avg[key] = value / float64(len(iris))
 	}
-	stddev := make([]float64, 8)
+	stddev := make([]float64, size)
 	for _, row := range data {
 		for key, value := range row {
 			diff := avg[key] - value
@@ -449,11 +450,11 @@ func main() {
 		Left  *Pivot
 		Right *Pivot
 	}
-	cols := make(map[int]bool)
+	cols := make(map[int]bool, size)
 	var process func(depth int, rows []Row) *Pivot
 	process = func(depth int, rows []Row) *Pivot {
 		pivot := Pivot{}
-		for ii := range 8 {
+		for ii := range size {
 			if cols[ii] {
 				continue
 			}
