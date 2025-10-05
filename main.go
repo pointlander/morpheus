@@ -16,6 +16,8 @@ import (
 	"runtime/pprof"
 	"sort"
 	"strings"
+
+	"github.com/pointlander/morpheus/kmeans"
 )
 
 var (
@@ -333,5 +335,52 @@ func main() {
 	if *FlagPageRank {
 		PageRankMode()
 		return
+	}
+
+	rng := rand.New(rand.NewSource(1))
+	iris := Load()
+	rl1 := NewMatrix(4, 4, make([]float64, 4*4)...)
+	for i := range rl1.Data {
+		rl1.Data[i] = rng.NormFloat64()
+	}
+	l1 := rl1.GramSchmidt().T()
+	rl2 := NewMatrix(8, 8, make([]float64, 8*8)...)
+	for i := range rl2.Data {
+		rl2.Data[i] = rng.NormFloat64()
+	}
+	l2 := rl2.GramSchmidt().T()
+	data := make([][]float64, 0, 8)
+	for _, row := range iris {
+		input := NewMatrix(4, 1, row.Measures...)
+		x := l1.MulT(input).Everett()
+		y := l2.MulT(x)
+		fmt.Println(row.Label, y.Data)
+		data = append(data, y.Data)
+	}
+	meta := make([][]float64, len(iris))
+	for i := range meta {
+		meta[i] = make([]float64, len(iris))
+	}
+	const k = 2
+	for i := 0; i < 33; i++ {
+		clusters, _, err := kmeans.Kmeans(int64(i+1), data, k, kmeans.SquaredEuclideanDistance, -1)
+		if err != nil {
+			panic(err)
+		}
+		for i := 0; i < len(meta); i++ {
+			target := clusters[i]
+			for j, v := range clusters {
+				if v == target {
+					meta[i][j]++
+				}
+			}
+		}
+	}
+	clusters, _, err := kmeans.Kmeans(1, meta, k, kmeans.SquaredEuclideanDistance, -1)
+	if err != nil {
+		panic(err)
+	}
+	for i, row := range iris {
+		fmt.Println(row.Label, clusters[i])
 	}
 }

@@ -234,6 +234,30 @@ func (m Matrix[T]) ReLu() Matrix[T] {
 	return o
 }
 
+// Everett is the everett activation function
+func (m Matrix[T]) Everett() Matrix[T] {
+	o := Matrix[T]{
+		Size: Size{
+			Cols: 2 * m.Cols,
+			Rows: m.Rows,
+		},
+		Data: make([]T, 0, 2*m.Cols*m.Rows),
+	}
+	for _, value := range m.Data {
+		positive := value
+		if positive < 0 {
+			positive = 0
+		}
+		o.Data = append(o.Data, positive)
+		negative := value
+		if negative > 0 {
+			negative = 0
+		}
+		o.Data = append(o.Data, negative)
+	}
+	return o
+}
+
 // Entropy calculates the entropy of the matrix rows
 func (m Matrix[T]) Entropy() Matrix[T] {
 	output := NewMatrix[T](m.Rows, 1)
