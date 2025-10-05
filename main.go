@@ -518,21 +518,15 @@ func main() {
 	}
 	pivots := process(1, rows)
 	x := pivots
-	y, d := pivots.Left, false
-	if pivots.Right.Max > y.Max {
-		y = pivots.Right
-		d = true
-	}
-	fmt.Println(x, y)
 	sort.Slice(rows, func(i, j int) bool {
 		return rows[i].Embedding[x.Col] < rows[j].Embedding[x.Col]
 	})
 	s1 := rows[:x.Row]
-	var r []Row
-	if d {
+	r := rows[:x.Row]
+	y := pivots.Left
+	if pivots.Right.Max > y.Max {
+		y = pivots.Right
 		r = rows[x.Row:]
-	} else {
-		r = rows[:x.Row]
 	}
 	sort.Slice(r, func(i, j int) bool {
 		return r[i].Embedding[x.Col] < r[j].Embedding[x.Col]
