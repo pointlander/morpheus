@@ -441,4 +441,68 @@ func main() {
 	for k, v := range a {
 		fmt.Println(k, v)
 	}
+
+	type Pivot struct {
+		Max float64
+		Col int
+		Row int
+	}
+	pivots := make([]Pivot, 2)
+	cols := make(map[int]bool)
+	for p := range pivots {
+		for ii := range 8 {
+			if cols[ii] {
+				continue
+			}
+			sort.Slice(rows, func(i, j int) bool {
+				return rows[i].Embedding[ii] < rows[j].Embedding[ii]
+			})
+			for iii := 1; iii < len(rows); iii++ {
+				avgA, cA := 0.0, 0.0
+				for iv := 0; iv < iii; iv++ {
+					avgA += rows[iv].Embedding[ii]
+					cA++
+				}
+				avgA /= cA
+				varA := 0.0
+				for iv := 0; iv < iii; iv++ {
+					diff := avgA - rows[iv].Embedding[ii]
+					varA += diff * diff
+				}
+				varA /= cA
+
+				avgB, cB := 0.0, 0.0
+				for iv := iii; iv < len(rows); iv++ {
+					avgB += rows[iv].Embedding[ii]
+					cB++
+				}
+				avgB /= cB
+				varB := 0.0
+				for iv := iii; iv < len(rows); iv++ {
+					diff := avgB - rows[iv].Embedding[ii]
+					varB += diff * diff
+				}
+				varB /= cB
+
+				avg, c := 0.0, 0.0
+				for iv := 0; iv < len(rows); iv++ {
+					avg += rows[iv].Embedding[ii]
+					c++
+				}
+				avg /= c
+				v := 0.0
+				for iv := 0; iv < len(rows); iv++ {
+					diff := avg - rows[iv].Embedding[ii]
+					v += diff * diff
+				}
+				v /= c
+
+				if gain := v - (varA + varB); gain > pivots[p].Max {
+					pivots[p].Max, pivots[p].Col, pivots[p].Row = gain, ii, iii
+				}
+			}
+		}
+		cols[pivots[p].Col] = true
+	}
+	fmt.Println(pivots)
 }
