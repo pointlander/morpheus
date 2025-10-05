@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/alixaxel/pagerank"
 	"io"
+	"math"
 	"math/rand"
 	"os"
 	"regexp"
@@ -357,13 +358,50 @@ func main() {
 		fmt.Println(row.Label, y.Data)
 		data = append(data, y.Data)
 	}
+	avg := make([]float64, 8)
+	for _, row := range data {
+		for key, value := range row {
+			avg[key] += value
+		}
+	}
+	for key, value := range avg {
+		avg[key] = value / float64(len(iris))
+	}
+	stddev := make([]float64, 8)
+	for _, row := range data {
+		for key, value := range row {
+			diff := avg[key] - value
+			stddev[key] += diff * diff
+		}
+	}
+	for key, value := range stddev {
+		stddev[key] = math.Sqrt(value / float64(len(iris)))
+	}
+	type Column struct {
+		Index  int
+		Stddev float64
+	}
+	columns := make([]Column, len(stddev))
+	for key, value := range stddev {
+		columns[key].Index = key
+		columns[key].Stddev = value
+	}
+	sort.Slice(columns, func(i, j int) bool {
+		return columns[i].Stddev > columns[j].Stddev
+	})
+	compressed := make([][]float64, len(data))
+	for i := range compressed {
+		for _, value := range columns[:2] {
+			compressed[i] = append(compressed[i], data[i][value.Index])
+		}
+	}
 	meta := make([][]float64, len(iris))
 	for i := range meta {
 		meta[i] = make([]float64, len(iris))
 	}
-	const k = 2
+	const k = 3
 	for i := 0; i < 33; i++ {
-		clusters, _, err := kmeans.Kmeans(int64(i+1), data, k, kmeans.SquaredEuclideanDistance, -1)
+		clusters, _, err := kmeans.Kmeans(int64(i+1), compressed, k, kmeans.SquaredEuclideanDistance, -1)
 		if err != nil {
 			panic(err)
 		}
@@ -382,5 +420,17 @@ func main() {
 	}
 	for i, row := range iris {
 		fmt.Println(row.Label, clusters[i])
+	}
+	for i := range columns {
+		fmt.Println(columns[i])
+	}
+	a := make(map[string][3]int)
+	for i := range clusters {
+		histogram := a[iris[i].Label]
+		histogram[clusters[i]]++
+		a[iris[i].Label] = histogram
+	}
+	for k, v := range a {
+		fmt.Println(k, v)
 	}
 }
