@@ -42,6 +42,8 @@ var (
 	FlagExtreme = flag.Bool("extreme", false, "extreme mode")
 	// FlagPageRank pagerank mode
 	FlagPageRank = flag.Bool("pagerank", false, "pagerank mode")
+	// FlagRandom is the random matrix mode
+	FlagRandom = flag.Bool("random", false, "flag random")
 	// FlagLearn learn the vector database
 	FlagLearn = flag.Bool("learn", false, "learn the vector database")
 	// FlagPrompt the prompt to use
@@ -278,66 +280,8 @@ func PageRankMode() {
 	}
 }
 
-func main() {
-	flag.Parse()
-
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-		if err := pprof.StartCPUProfile(f); err != nil {
-			panic(err)
-		}
-		defer pprof.StopCPUProfile()
-	}
-
-	if *FlagIris {
-		IrisMode()
-		return
-	}
-
-	if *FlagIrisMarkov {
-		IrisMarkovMode()
-		return
-	}
-
-	if *FlagClass {
-		ClassMode()
-		return
-	}
-
-	if *FlagText {
-		TextMode()
-		return
-	}
-
-	if *FlagTxt {
-		TxtMode()
-		return
-	}
-
-	if *Flag3m {
-		_3mMode()
-		return
-	}
-
-	if *FlagExtreme {
-		ExtremeMode()
-		return
-	}
-
-	if *FlagMach1 {
-		Mach1Mode()
-		return
-	}
-
-	if *FlagPageRank {
-		PageRankMode()
-		return
-	}
-
+// RandomMode random mode
+func RandomMode() {
 	rng := rand.New(rand.NewSource(1))
 	iris := Load()
 	rl1 := NewMatrix(4, 4, make([]float64, 4*4)...)
@@ -556,4 +500,154 @@ func main() {
 	for k, v := range a {
 		fmt.Println(k, v)
 	}
+}
+
+func main() {
+	flag.Parse()
+
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			panic(err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
+	if *FlagIris {
+		IrisMode()
+		return
+	}
+
+	if *FlagIrisMarkov {
+		IrisMarkovMode()
+		return
+	}
+
+	if *FlagClass {
+		ClassMode()
+		return
+	}
+
+	if *FlagText {
+		TextMode()
+		return
+	}
+
+	if *FlagTxt {
+		TxtMode()
+		return
+	}
+
+	if *Flag3m {
+		_3mMode()
+		return
+	}
+
+	if *FlagExtreme {
+		ExtremeMode()
+		return
+	}
+
+	if *FlagMach1 {
+		Mach1Mode()
+		return
+	}
+
+	if *FlagPageRank {
+		PageRankMode()
+		return
+	}
+
+	if *FlagRandom {
+		RandomMode()
+		return
+	}
+
+	rng := rand.New(rand.NewSource(1))
+
+	const (
+		size = 256
+	)
+
+	type File struct {
+		Name  string
+		Data  []byte
+		Model Model
+	}
+
+	files := []File{
+		{Name: "pg74.txt.bz2"},
+		{Name: "10.txt.utf-8.bz2"},
+		{Name: "76.txt.utf-8.bz2"},
+		{Name: "84.txt.utf-8.bz2"},
+		{Name: "100.txt.utf-8.bz2"},
+		{Name: "1837.txt.utf-8.bz2"},
+		{Name: "2701.txt.utf-8.bz2"},
+		{Name: "3176.txt.utf-8.bz2"},
+	}
+
+	load := func(book *File) {
+		path := fmt.Sprintf("books/%s", book.Name)
+		file, err := Text.Open(path)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+		breader := bzip2.NewReader(file)
+		data, err := io.ReadAll(breader)
+		if err != nil {
+			panic(err)
+		}
+
+		markov := [order]Markov{}
+		for i := range book.Model {
+			book.Model[i] = make(map[Markov][]uint32)
+		}
+		for _, value := range data {
+			for ii := range markov {
+				vector := book.Model[ii][markov[ii]]
+				if vector == nil {
+					vector = make([]uint32, size)
+				}
+				vector[value]++
+				book.Model[ii][markov[ii]] = vector
+
+				state := value
+				for iii, value := range markov[ii][:ii+1] {
+					markov[ii][iii], state = state, value
+				}
+			}
+		}
+		book.Data = data
+	}
+	for i := range files {
+		load(&files[i])
+		fmt.Println(files[i].Name)
+		for ii := range files[i].Model {
+			fmt.Println(len(files[i].Model[ii]))
+		}
+	}
+
+	str := []byte("What is the meaning of life?")
+	var markov [order]Markov
+	for _, value := range str {
+		Iterate(&markov, value)
+	}
+	for range 128 {
+		distribution := Lookup(&markov, &files[1].Model)
+		sum, selected := float32(0.0), rng.Float32()
+		for key, value := range distribution {
+			sum += value
+			if selected < sum {
+				str = append(str, byte(key))
+				Iterate(&markov, byte(key))
+				break
+			}
+		}
+	}
+	fmt.Println(string(str))
 }
