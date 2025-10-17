@@ -632,22 +632,35 @@ func main() {
 		}
 	}
 
-	str := []byte("What is the meaning of life?")
-	var markov [order]Markov
-	for _, value := range str {
-		Iterate(&markov, value)
+	type String struct {
+		String []byte
+		Markov [order]Markov
+		Reward float64
+		Vector [][]float32
 	}
-	for range 128 {
-		distribution := Lookup(&markov, &files[1].Model)
-		sum, selected := float32(0.0), rng.Float32()
-		for key, value := range distribution {
-			sum += value
-			if selected < sum {
-				str = append(str, byte(key))
-				Iterate(&markov, byte(key))
-				break
+	strings := make([]String, 1024)
+	for i := range strings {
+		strings[i].String = []byte("What is the meaning of life?")
+		for _, value := range strings[i].String {
+			Iterate(&strings[i].Markov, value)
+		}
+		for range 128 {
+			distribution := Lookup(&strings[i].Markov, &files[1].Model)
+			strings[i].Vector = append(strings[i].Vector, distribution)
+			sum, selected := float32(0.0), rng.Float32()
+			for key, value := range distribution {
+				sum += value
+				if selected < sum {
+					strings[i].String = append(strings[i].String, byte(key))
+					Iterate(&strings[i].Markov, byte(key))
+					strings[i].Reward += float64(value)
+					break
+				}
 			}
 		}
 	}
-	fmt.Println(string(str))
+	sort.Slice(strings, func(i, j int) bool {
+		return strings[i].Reward > strings[j].Reward
+	})
+	fmt.Println(string(strings[0].String))
 }
