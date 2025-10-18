@@ -58,7 +58,7 @@ const (
 )
 
 type Markov [order]byte
-type Model [order]map[Markov][]uint32
+type Model [order]map[Markov][]float32
 
 // Lookup looks a vector up
 func Lookup(markov *[order]Markov, model *Model) []float32 {
@@ -503,6 +503,30 @@ func RandomMode() {
 	}
 }
 
+// Rank calculates the page rank based entropy
+func Rank(vectors [][]float32) float64 {
+	graph := pagerank.NewGraph()
+	for ii := range vectors {
+		a := NewMatrix(256, 1, vectors[ii]...)
+		for iii := range vectors {
+			b := NewMatrix(256, 1, vectors[iii]...)
+			graph.Link(uint32(ii), uint32(iii), float64(a.CS(b)))
+		}
+	}
+	result := make([]float64, len(vectors))
+	graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
+		result[node] = rank
+	})
+	entropy := 0.0
+	for _, value := range result {
+		if value == 0 {
+			continue
+		}
+		entropy += value * math.Log2(value)
+	}
+	return -entropy
+}
+
 func main() {
 	flag.Parse()
 
@@ -578,17 +602,18 @@ func main() {
 		Name  string
 		Data  []byte
 		Model Model
+		Rank  Model
 	}
 
 	files := []File{
-		{Name: "pg74.txt.bz2"},
+		//{Name: "pg74.txt.bz2"},
 		{Name: "10.txt.utf-8.bz2"},
-		{Name: "76.txt.utf-8.bz2"},
+		/*{Name: "76.txt.utf-8.bz2"},
 		{Name: "84.txt.utf-8.bz2"},
 		{Name: "100.txt.utf-8.bz2"},
 		{Name: "1837.txt.utf-8.bz2"},
 		{Name: "2701.txt.utf-8.bz2"},
-		{Name: "3176.txt.utf-8.bz2"},
+		{Name: "3176.txt.utf-8.bz2"},*/
 	}
 
 	load := func(book *File) {
@@ -606,13 +631,14 @@ func main() {
 
 		markov := [order]Markov{}
 		for i := range book.Model {
-			book.Model[i] = make(map[Markov][]uint32)
+			book.Model[i] = make(map[Markov][]float32)
+			book.Rank[i] = make(map[Markov][]float32)
 		}
 		for _, value := range data {
 			for ii := range markov {
 				vector := book.Model[ii][markov[ii]]
 				if vector == nil {
-					vector = make([]uint32, size)
+					vector = make([]float32, size)
 				}
 				vector[value]++
 				book.Model[ii][markov[ii]] = vector
@@ -623,6 +649,26 @@ func main() {
 				}
 			}
 		}
+		/*markov = [order]Markov{}
+		vectors := make([][]float32, 8)
+		index := 0
+		for ii, value := range data {
+			Iterate(&markov, value)
+			distribution := Lookup(&markov, &book.Model)
+			vectors[index] = distribution
+			index = (index + 1) % len(vectors)
+			if ii > 8 {
+				entropy := Rank(vectors)
+				for iii := range markov {
+					vector := book.Rank[iii][markov[iii]]
+					if vector == nil {
+						vector = make([]float32, size)
+					}
+					vector[value] += float32(entropy)
+					book.Rank[iii][markov[iii]] = vector
+				}
+			}
+		}*/
 		book.Data = data
 	}
 	for i := range files {
@@ -640,56 +686,57 @@ func main() {
 		Vector  [][]float32
 		Entropy float64
 	}
-	strings := make([]String, 1024)
-	for i := range strings {
-		strings[i].String = []byte("What is the meaning of life?")
-		for _, value := range strings[i].String {
-			distribution := Lookup(&strings[i].Markov, &files[1].Model)
-			strings[i].Vector = append(strings[i].Vector, distribution)
-			Iterate(&strings[i].Markov, value)
-		}
-		for range 128 {
-			distribution := Lookup(&strings[i].Markov, &files[1].Model)
-			strings[i].Vector = append(strings[i].Vector, distribution)
-			sum, selected := float32(0.0), rng.Float32()
-			for key, value := range distribution {
-				sum += value
-				if selected < sum {
-					strings[i].String = append(strings[i].String, byte(key))
-					Iterate(&strings[i].Markov, byte(key))
-					strings[i].Reward += float64(value)
-					break
+	str := []byte("What is the meaning of life?")
+	for range 8 {
+		strings := make([]String, 1024)
+		for i := range strings {
+			strings[i].String = str
+			for _, value := range strings[i].String {
+				distribution := Lookup(&strings[i].Markov, &files[0].Model)
+				strings[i].Vector = append(strings[i].Vector, distribution)
+				Iterate(&strings[i].Markov, value)
+			}
+			for range 33 {
+				distribution := Lookup(&strings[i].Markov, &files[0].Model)
+				strings[i].Vector = append(strings[i].Vector, distribution)
+				sum, selected := float32(0.0), rng.Float32()
+				for key, value := range distribution {
+					sum += value
+					if selected < sum {
+						strings[i].String = append(strings[i].String, byte(key))
+						Iterate(&strings[i].Markov, byte(key))
+						strings[i].Reward += float64(value)
+						break
+					}
 				}
 			}
 		}
-	}
-	for i := range strings {
-		graph := pagerank.NewGraph()
-		for ii := range strings[i].Vector {
-			a := NewMatrix(256, 1, strings[i].Vector[ii]...)
-			for iii := range strings[i].Vector {
-				b := NewMatrix(256, 1, strings[i].Vector[iii]...)
-				graph.Link(uint32(ii), uint32(iii), float64(a.CS(b)))
+		for i := range strings {
+			graph := pagerank.NewGraph()
+			for ii := range strings[i].Vector {
+				a := NewMatrix(256, 1, strings[i].Vector[ii]...)
+				for iii := range strings[i].Vector {
+					b := NewMatrix(256, 1, strings[i].Vector[iii]...)
+					graph.Link(uint32(ii), uint32(iii), float64(a.CS(b)))
+				}
 			}
+			result := make([]float64, len(strings))
+			graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
+				result[node] = rank
+			})
+			entropy := 0.0
+			for _, value := range result {
+				if value == 0 {
+					continue
+				}
+				entropy += value * math.Log2(value)
+			}
+			strings[i].Entropy = Rank(strings[i].Vector)
 		}
-		result := make([]float64, len(strings))
-		graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
-			result[node] = rank
+		sort.Slice(strings, func(i, j int) bool {
+			return strings[i].Entropy < strings[j].Entropy
 		})
-		entropy := 0.0
-		for _, value := range result {
-			if value == 0 {
-				continue
-			}
-			entropy += value * math.Log2(value)
-		}
-		strings[i].Entropy = -entropy
+		fmt.Println(string(strings[0].String))
+		str = strings[0].String
 	}
-	sort.Slice(strings, func(i, j int) bool {
-		return strings[i].Entropy < strings[j].Entropy
-	})
-	for i := range 10 {
-		fmt.Println(strings[i].Reward, strings[i].Entropy)
-	}
-	fmt.Println(string(strings[0].String))
 }

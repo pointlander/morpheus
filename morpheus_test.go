@@ -133,3 +133,16 @@ func BenchmarkPageRankFast(b *testing.B) {
 		PageRank(.85, 8, 1, adj)
 	}
 }
+
+func BenchmarkRank(b *testing.B) {
+	rng := rand.New(rand.NewSource(1))
+	vectors := make([][]float32, 16)
+	for i := range vectors {
+		for range 256 {
+			vectors[i] = append(vectors[i], rng.Float32())
+		}
+	}
+	for b.Loop() {
+		Rank(vectors)
+	}
+}

@@ -42,12 +42,12 @@ func _3mMode() {
 
 	var books Model
 	for i := range books {
-		books[i] = make(map[Markov][]uint32)
+		books[i] = make(map[Markov][]float32)
 	}
 	var sets [clusters]Model
 	for i := range sets {
 		for ii := range sets[i] {
-			sets[i][ii] = make(map[Markov][]uint32)
+			sets[i][ii] = make(map[Markov][]float32)
 		}
 	}
 	load := func(book string) []byte {
@@ -68,7 +68,7 @@ func _3mMode() {
 			for ii := range markov {
 				vector := books[ii][markov[ii]]
 				if vector == nil {
-					vector = make([]uint32, size)
+					vector = make([]float32, size)
 				}
 				vector[value]++
 				books[ii][markov[ii]] = vector
@@ -236,7 +236,7 @@ func _3mMode() {
 
 		for i := range sets {
 			for ii := range sets[i] {
-				sets[i][ii] = make(map[Markov][]uint32)
+				sets[i][ii] = make(map[Markov][]float32)
 			}
 		}
 		for i := range segments {
@@ -245,7 +245,7 @@ func _3mMode() {
 				for iii := range markov {
 					vector := sets[segments[i].Meta.Cluster][iii][markov[iii]]
 					if vector == nil {
-						vector = make([]uint32, size)
+						vector = make([]float32, size)
 					}
 					vector[value]++
 					sets[segments[i].Meta.Cluster][iii][markov[iii]] = vector
@@ -260,14 +260,14 @@ func _3mMode() {
 
 	var set Model
 	for i := range set {
-		set[i] = make(map[Markov][]uint32)
+		set[i] = make(map[Markov][]float32)
 	}
 	for i := range sets {
 		for ii := range sets[i] {
 			for key, entry := range sets[i][ii] {
 				vector := set[ii][key]
 				if vector == nil {
-					vector = make([]uint32, size)
+					vector = make([]float32, size)
 				}
 				for iii, value := range entry {
 					vector[iii] += value

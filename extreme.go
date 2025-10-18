@@ -49,13 +49,13 @@ func ExtremeMode() {
 
 		markov := [order]Markov{}
 		for i := range book.Model {
-			book.Model[i] = make(map[Markov][]uint32)
+			book.Model[i] = make(map[Markov][]float32)
 		}
 		for _, value := range data {
 			for ii := range markov {
 				vector := book.Model[ii][markov[ii]]
 				if vector == nil {
-					vector = make([]uint32, size)
+					vector = make([]float32, size)
 				}
 				vector[value]++
 				book.Model[ii][markov[ii]] = vector
