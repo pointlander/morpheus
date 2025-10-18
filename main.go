@@ -644,6 +644,8 @@ func main() {
 	for i := range strings {
 		strings[i].String = []byte("What is the meaning of life?")
 		for _, value := range strings[i].String {
+			distribution := Lookup(&strings[i].Markov, &files[1].Model)
+			strings[i].Vector = append(strings[i].Vector, distribution)
 			Iterate(&strings[i].Markov, value)
 		}
 		for range 128 {
