@@ -8,7 +8,6 @@ import (
 	"compress/bzip2"
 	"flag"
 	"fmt"
-	"github.com/alixaxel/pagerank"
 	"io"
 	"math"
 	"math/rand"
@@ -19,6 +18,8 @@ import (
 	"strings"
 
 	"github.com/pointlander/morpheus/kmeans"
+
+	"github.com/alixaxel/pagerank"
 )
 
 var (
@@ -633,10 +634,11 @@ func main() {
 	}
 
 	type String struct {
-		String []byte
-		Markov [order]Markov
-		Reward float64
-		Vector [][]float32
+		String  []byte
+		Markov  [order]Markov
+		Reward  float64
+		Vector  [][]float32
+		Entropy float64
 	}
 	strings := make([]String, 1024)
 	for i := range strings {
@@ -659,8 +661,33 @@ func main() {
 			}
 		}
 	}
+	for i := range strings {
+		graph := pagerank.NewGraph()
+		for ii := range strings[i].Vector {
+			a := NewMatrix(256, 1, strings[i].Vector[ii]...)
+			for iii := range strings[i].Vector {
+				b := NewMatrix(256, 1, strings[i].Vector[iii]...)
+				graph.Link(uint32(ii), uint32(iii), float64(a.CS(b)))
+			}
+		}
+		result := make([]float64, len(strings))
+		graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
+			result[node] = rank
+		})
+		entropy := 0.0
+		for _, value := range result {
+			if value == 0 {
+				continue
+			}
+			entropy += value * math.Log2(value)
+		}
+		strings[i].Entropy = -entropy
+	}
 	sort.Slice(strings, func(i, j int) bool {
-		return strings[i].Reward > strings[j].Reward
+		return strings[i].Entropy < strings[j].Entropy
 	})
+	for i := range 10 {
+		fmt.Println(strings[i].Reward, strings[i].Entropy)
+	}
 	fmt.Println(string(strings[0].String))
 }
