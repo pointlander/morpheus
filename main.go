@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"os"
 	"regexp"
+	"runtime"
 	"runtime/pprof"
 	"sort"
 	"strings"
@@ -711,27 +712,27 @@ func main() {
 				}
 			}
 		}
-		for i := range strings {
-			graph := pagerank.NewGraph()
-			for ii := range strings[i].Vector {
-				a := NewMatrix(256, 1, strings[i].Vector[ii]...)
-				for iii := range strings[i].Vector {
-					b := NewMatrix(256, 1, strings[i].Vector[iii]...)
-					graph.Link(uint32(ii), uint32(iii), float64(a.CS(b)))
-				}
-			}
-			result := make([]float64, len(strings))
-			graph.Rank(1.0, 1e-3, func(node uint32, rank float64) {
-				result[node] = rank
-			})
-			entropy := 0.0
-			for _, value := range result {
-				if value == 0 {
-					continue
-				}
-				entropy += value * math.Log2(value)
-			}
-			strings[i].Entropy = Rank(strings[i].Vector)
+		done := make(chan bool, 8)
+		process := func(index int) {
+			strings[index].Entropy = Rank(strings[index].Vector)
+			done <- true
+		}
+		index, flight, cpus := 0, 0, runtime.NumCPU()
+		for index < len(strings) && flight < cpus {
+			go process(index)
+			index++
+			flight++
+		}
+		for index < len(strings) {
+			<-done
+			flight--
+
+			go process(index)
+			index++
+			flight++
+		}
+		for range flight {
+			<-done
 		}
 		sort.Slice(strings, func(i, j int) bool {
 			return strings[i].Entropy < strings[j].Entropy
