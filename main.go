@@ -688,7 +688,7 @@ func main() {
 		Entropy float64
 	}
 	str := []byte("What is the meaning of life?")
-	for range 8 {
+	for range 32 {
 		strings := make([]String, 1024)
 		for i := range strings {
 			strings[i].String = str
@@ -697,7 +697,7 @@ func main() {
 				strings[i].Vector = append(strings[i].Vector, distribution)
 				Iterate(&strings[i].Markov, value)
 			}
-			for range 33 {
+			for range 8 {
 				distribution := Lookup(&strings[i].Markov, &files[0].Model)
 				strings[i].Vector = append(strings[i].Vector, distribution)
 				sum, selected := float32(0.0), rng.Float32()
