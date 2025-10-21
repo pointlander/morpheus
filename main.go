@@ -777,6 +777,100 @@ func main() {
 		{Name: "3176.txt.utf-8.bz2"},*/
 	}
 
+	if !*FlagLearn {
+		load := func(book *File) {
+			path := fmt.Sprintf("books/%s", book.Name)
+			file, err := Text.Open(path)
+			if err != nil {
+				panic(err)
+			}
+			defer file.Close()
+			breader := bzip2.NewReader(file)
+			data, err := io.ReadAll(breader)
+			if err != nil {
+				panic(err)
+			}
+
+			markov := [order]Markov{}
+			for i := range book.Model {
+				book.Model[i] = make(map[Markov][]float32)
+			}
+			for _, value := range data {
+				for ii := range markov {
+					vector := book.Model[ii][markov[ii]]
+					if vector == nil {
+						vector = make([]float32, size)
+					}
+					vector[value]++
+					book.Model[ii][markov[ii]] = vector
+
+					state := value
+					for iii, value := range markov[ii][:ii+1] {
+						markov[ii][iii], state = state, value
+					}
+				}
+			}
+			book.Data = data
+		}
+		for i := range files {
+			load(&files[i])
+			fmt.Println(files[i].Name)
+			for ii := range files[i].Model {
+				fmt.Println(len(files[i].Model[ii]))
+			}
+		}
+
+		input, err := os.Open("vectors.v")
+		if err != nil {
+			panic(err)
+		}
+		defer input.Close()
+		mixer := NewMixer()
+		str := []byte(*FlagPrompt)
+		for _, value := range str {
+			mixer.Add(value)
+		}
+		for range 33 {
+			vector := mixer.Mix(&files[0].Model)
+			_, err := input.Seek(0, 0)
+			if err != nil {
+				panic(err)
+			}
+			max, symbol := float32(0.0), byte(0)
+			for {
+				entry := Entry{}
+				buffer := make([]byte, InputSize*4+1)
+				n, err := input.Read(buffer)
+				if err == io.EOF {
+					break
+				}
+				if n != len(buffer) {
+					panic(fmt.Sprintf("%d bytes should have been read, %d was read", len(buffer), n))
+				}
+				if err != nil {
+					panic(err)
+				}
+				for k := range entry.Vector {
+					var bits uint32
+					for l := 0; l < 4; l++ {
+						bits |= uint32(buffer[4*k+l]) << (8 * l)
+					}
+					entry.Vector[k] = math.Float32frombits(bits)
+				}
+				entry.Symbol = buffer[len(buffer)-1]
+				cs := NCS(entry.Vector[:], vector[:])
+				if cs > max {
+					max, symbol = cs, entry.Symbol
+				}
+			}
+			str = append(str, symbol)
+			mixer.Add(symbol)
+			fmt.Println(symbol)
+		}
+		fmt.Println(string(str))
+		return
+	}
+
 	output, err := os.Create("vectors.v")
 	if err != nil {
 		panic(err)
