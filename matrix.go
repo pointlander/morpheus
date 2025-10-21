@@ -508,7 +508,7 @@ func SelfAttention[T Float](Q, K, V Matrix[T]) Matrix[T] {
 func selfAttention[T Float](input Matrix[T]) [InputSize]T {
 	values := make([]T, input.Rows)
 	V := input.T()
-	output, index := [InputSize]T{}, 0
+	output := [InputSize]T{}
 	for i := 0; i < input.Rows; i++ {
 		K := input.Data[i*input.Cols : (i+1)*input.Cols]
 		for j := 0; j < input.Rows; j++ {
@@ -519,8 +519,7 @@ func selfAttention[T Float](input Matrix[T]) [InputSize]T {
 
 		for j := 0; j < V.Rows; j++ {
 			V := V.Data[j*V.Cols : (j+1)*V.Cols]
-			output[index] = dot(values, V)
-			index++
+			output[j] += dot(values, V)
 		}
 	}
 	aa := sqrt(dot(output[:], output[:]))

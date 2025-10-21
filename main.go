@@ -750,4 +750,104 @@ func main() {
 		MarkovMode()
 		return
 	}
+
+	const (
+		size = 256
+	)
+
+	type Entry struct {
+		Symbol byte
+		Vector [InputSize]float32
+	}
+
+	type File struct {
+		Name  string
+		Data  []byte
+		Model Model
+	}
+
+	files := []File{
+		//{Name: "pg74.txt.bz2"},
+		{Name: "10.txt.utf-8.bz2"},
+		/*{Name: "76.txt.utf-8.bz2"},
+		{Name: "84.txt.utf-8.bz2"},
+		{Name: "100.txt.utf-8.bz2"},
+		{Name: "1837.txt.utf-8.bz2"},
+		{Name: "2701.txt.utf-8.bz2"},
+		{Name: "3176.txt.utf-8.bz2"},*/
+	}
+
+	output, err := os.Create("vectors.v")
+	if err != nil {
+		panic(err)
+	}
+	load := func(book *File) {
+		path := fmt.Sprintf("books/%s", book.Name)
+		file, err := Text.Open(path)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+		breader := bzip2.NewReader(file)
+		data, err := io.ReadAll(breader)
+		if err != nil {
+			panic(err)
+		}
+
+		markov := [order]Markov{}
+		for i := range book.Model {
+			book.Model[i] = make(map[Markov][]float32)
+		}
+		for _, value := range data {
+			for ii := range markov {
+				vector := book.Model[ii][markov[ii]]
+				if vector == nil {
+					vector = make([]float32, size)
+				}
+				vector[value]++
+				book.Model[ii][markov[ii]] = vector
+
+				state := value
+				for iii, value := range markov[ii][:ii+1] {
+					markov[ii][iii], state = state, value
+				}
+			}
+		}
+		book.Data = data
+		buffer32 := make([]byte, 4)
+		mixer := NewMixer()
+		mixer.Add(0)
+		for _, value := range data {
+			vector := mixer.Mix(&book.Model)
+			for _, v := range vector {
+				bits := math.Float32bits(v)
+				for i := range buffer32 {
+					buffer32[i] = byte((bits >> (8 * i)) & 0xFF)
+				}
+				n, err := output.Write(buffer32)
+				if err != nil {
+					panic(err)
+				}
+				if n != len(buffer32) {
+					panic("4 bytes should have been written")
+				}
+			}
+			n, err := output.Write([]byte{value})
+			if err != nil {
+				panic(err)
+			}
+			if n != 1 {
+				panic("1 bytes should have been written ")
+			}
+			mixer.Add(value)
+		}
+	}
+	for i := range files {
+		load(&files[i])
+		fmt.Println(files[i].Name)
+		for ii := range files[i].Model {
+			fmt.Println(len(files[i].Model[ii]))
+		}
+	}
+	output.Close()
 }
