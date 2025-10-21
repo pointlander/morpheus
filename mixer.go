@@ -30,14 +30,7 @@ const (
 type Mix interface {
 	Copy() Mix
 	Add(byte)
-	Mix() [InputSize]float32
-}
-
-// Mix is a mixer
-type CrossMix interface {
-	Copy() CrossMix
-	Add(byte, byte)
-	Mix() [InputSize]float32
+	Mix(model *Model) [InputSize]float32
 }
 
 type CDF16 struct {
@@ -215,7 +208,7 @@ func (f Filtered) Add(s byte) {
 }
 
 // Mix mixes the filters outputting a matrix
-func (f Filtered) Mix() [InputSize]float32 {
+func (f Filtered) Mix(model *Model) [InputSize]float32 {
 	x := NewMatrix[float32](256, MixerSize+MixerOrder+1)
 	for i := range f.Filters {
 		model := f.Filters[i].GetModel()
@@ -240,7 +233,7 @@ func (f Filtered) Mix() [InputSize]float32 {
 
 // Mixer mixes several histograms together
 type Mixer struct {
-	Markov     MixerMarkov
+	Markov     [order]Markov
 	Histograms []Histogram
 }
 
@@ -276,15 +269,12 @@ func (m *Mixer) Add(s byte) {
 	for i := range m.Histograms {
 		m.Histograms[i].Add(s)
 	}
-	for k := MixerOrder; k > 0; k-- {
-		m.Markov[k] = m.Markov[k-1]
-	}
-	m.Markov[0] = s
+	Iterate(&m.Markov, s)
 }
 
 // Mix mixes the histograms outputting a matrix
-func (m Mixer) Mix() [InputSize]float32 {
-	x := NewMatrix[float32](256, MixerSize+MixerOrder+1)
+func (m Mixer) Mix(model *Model) [InputSize]float32 {
+	x := NewMatrix[float32](256, MixerSize+order)
 	for i := range m.Histograms {
 		sum := float32(0.0)
 		for _, v := range m.Histograms[i].Vector {
@@ -294,10 +284,22 @@ func (m Mixer) Mix() [InputSize]float32 {
 			x.Data = append(x.Data, float32(v)/sum)
 		}
 	}
-	for _, v := range m.Markov {
-		d := make([]float32, 256)
-		d[v] = 1
-		x.Data = append(x.Data, d...)
+	for i := range m.Markov {
+		i = order - 1 - i
+		vector := model[i][m.Markov[i]]
+		if vector != nil {
+			sum := float32(0.0)
+			for _, value := range vector {
+				sum += float32(value)
+			}
+			for _, value := range vector {
+				x.Data = append(x.Data, float32(value)/sum)
+			}
+		} else {
+			for range 256 {
+				x.Data = append(x.Data, 0)
+			}
+		}
 	}
 	return selfAttention(x)
 }

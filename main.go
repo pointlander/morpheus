@@ -46,6 +46,8 @@ var (
 	FlagPageRank = flag.Bool("pagerank", false, "pagerank mode")
 	// FlagRandom is the random matrix mode
 	FlagRandom = flag.Bool("random", false, "flag random")
+	// FlagMarkov is a markov model
+	FlagMarkov = flag.Bool("markov", false, "markov mode")
 	// FlagLearn learn the vector database
 	FlagLearn = flag.Bool("learn", false, "learn the vector database")
 	// FlagPrompt the prompt to use
@@ -528,71 +530,8 @@ func Rank(vectors [][]float32) float64 {
 	return -entropy
 }
 
-func main() {
-	flag.Parse()
-
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-		if err := pprof.StartCPUProfile(f); err != nil {
-			panic(err)
-		}
-		defer pprof.StopCPUProfile()
-	}
-
-	if *FlagIris {
-		IrisMode()
-		return
-	}
-
-	if *FlagIrisMarkov {
-		IrisMarkovMode()
-		return
-	}
-
-	if *FlagClass {
-		ClassMode()
-		return
-	}
-
-	if *FlagText {
-		TextMode()
-		return
-	}
-
-	if *FlagTxt {
-		TxtMode()
-		return
-	}
-
-	if *Flag3m {
-		_3mMode()
-		return
-	}
-
-	if *FlagExtreme {
-		ExtremeMode()
-		return
-	}
-
-	if *FlagMach1 {
-		Mach1Mode()
-		return
-	}
-
-	if *FlagPageRank {
-		PageRankMode()
-		return
-	}
-
-	if *FlagRandom {
-		RandomMode()
-		return
-	}
-
+// MarkovMode is the markov mode
+func MarkovMode() {
 	rng := rand.New(rand.NewSource(1))
 
 	const (
@@ -739,5 +678,76 @@ func main() {
 		})
 		fmt.Println(string(strings[0].String))
 		str = strings[0].String
+	}
+}
+
+func main() {
+	flag.Parse()
+
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			panic(err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
+	if *FlagIris {
+		IrisMode()
+		return
+	}
+
+	if *FlagIrisMarkov {
+		IrisMarkovMode()
+		return
+	}
+
+	if *FlagClass {
+		ClassMode()
+		return
+	}
+
+	if *FlagText {
+		TextMode()
+		return
+	}
+
+	if *FlagTxt {
+		TxtMode()
+		return
+	}
+
+	if *Flag3m {
+		_3mMode()
+		return
+	}
+
+	if *FlagExtreme {
+		ExtremeMode()
+		return
+	}
+
+	if *FlagMach1 {
+		Mach1Mode()
+		return
+	}
+
+	if *FlagPageRank {
+		PageRankMode()
+		return
+	}
+
+	if *FlagRandom {
+		RandomMode()
+		return
+	}
+
+	if *FlagMarkov {
+		MarkovMode()
+		return
 	}
 }
