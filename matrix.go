@@ -411,6 +411,16 @@ func dot[T Float](x, y []T) (z T) {
 	return z
 }
 
+func sqrt[T Float](x T) (z T) {
+	switch x := any(x).(type) {
+	case float64:
+		z = T(math.Sqrt(x))
+	case float32:
+		z = T(math.Sqrt(float64(x)))
+	}
+	return z
+}
+
 func softmax[T Float](values []T) {
 	max := T(0.0)
 	for _, v := range values {
@@ -492,6 +502,32 @@ func SelfAttention[T Float](Q, K, V Matrix[T]) Matrix[T] {
 		o.Data = append(o.Data, outputs...)
 	}
 	return o
+}
+
+// SelfAttention computes the self attention of Q, K, V
+func selfAttention[T Float](input Matrix[T]) [InputSize]T {
+	values := make([]T, input.Rows)
+	V := input.T()
+	output, index := [InputSize]T{}, 0
+	for i := 0; i < input.Rows; i++ {
+		K := input.Data[i*input.Cols : (i+1)*input.Cols]
+		for j := 0; j < input.Rows; j++ {
+			Q := input.Data[j*input.Cols : (j+1)*input.Cols]
+			values[j] = dot(K, Q)
+		}
+		softmax(values)
+
+		for j := 0; j < V.Rows; j++ {
+			V := V.Data[j*V.Cols : (j+1)*V.Cols]
+			output[index] = dot(values, V)
+			index++
+		}
+	}
+	aa := sqrt(dot(output[:], output[:]))
+	for i, v := range output {
+		output[i] = v / aa
+	}
+	return output
 }
 
 // RNG is a random number generator
@@ -787,4 +823,21 @@ func (m Matrix[T]) GramSchmidt() Matrix[T] {
 		}
 	}
 	return n
+}
+
+// CS is cosine similarity
+func CS[T Float](a []T, b []T) T {
+	return dot(a, b)
+}
+
+// NCS is normalized cosine similarity
+func NCS[T Float](a []T, b []T) T {
+	aa, bb, ab := dot(a, a), dot(b, b), dot(a, b)
+	if aa <= 0 {
+		return 0
+	}
+	if bb <= 0 {
+		return 0
+	}
+	return ab / (sqrt(aa) * sqrt(bb))
 }
