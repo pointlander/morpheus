@@ -12,7 +12,7 @@ const (
 	// Size is the number of histograms
 	MixerSize = 8
 	// Order is the order of the markov model
-	MixerOrder = 4
+	MixerOrder = order
 	// InputSize is the size of the input
 	InputSize = 256
 )
